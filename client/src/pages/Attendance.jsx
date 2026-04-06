@@ -46,7 +46,14 @@ export default function Attendance() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in-up">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--attendly-text-primary)' }}>
+          <h1
+            className="text-3xl font-extrabold tracking-tight"
+            style={{
+              background: 'linear-gradient(135deg, var(--attendly-text-primary) 0%, #6366f1 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
             Attendance Logs
           </h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--attendly-text-muted)' }}>

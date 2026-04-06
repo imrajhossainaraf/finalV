@@ -8,10 +8,29 @@ export default function Devices() {
     <div className="space-y-6">
       {/* Header */}
       <div className="animate-fade-in-up">
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--attendly-text-primary)' }}>
-          Device Monitor
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
+        <div className="flex items-center gap-3 mb-1">
+          <h1
+            className="text-3xl font-extrabold tracking-tight"
+            style={{
+              background: 'linear-gradient(135deg, var(--attendly-text-primary) 0%, #10b981 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            Device Monitor
+          </h1>
+          <div
+            className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-1"
+            style={{ background: 'var(--attendly-glow-success)', color: '#34d399' }}
+          >
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#34d399' }} />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: '#34d399' }} />
+            </span>
+            Live
+          </div>
+        </div>
+        <p className="text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
           Manage connected ESP32 RFID scanners.
         </p>
       </div>
