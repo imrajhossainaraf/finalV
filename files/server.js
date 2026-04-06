@@ -11,9 +11,10 @@ const sqlite3 = require('sqlite3').verbose();
 const nodemailer = require('nodemailer');
 const cors = require('cors');
 const moment = require('moment-timezone');
+const path = require('path');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 // ============================================================
 //  MIDDLEWARE
@@ -22,14 +23,18 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Serve static files from the React app build
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
 // ============================================================
 //  DATABASE SETUP
 // ============================================================
-const db = new sqlite3.Database('./attendly.db', (err) => {
+const dbPath = path.join(__dirname, 'attendly.db');
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Database error:', err.message);
   } else {
-    console.log('✅ Connected to SQLite database');
+    console.log('✅ Connected to SQLite database at', dbPath);
     initDatabase();
   }
 });
@@ -425,6 +430,13 @@ app.get('/api/stats', (req, res) => {
       );
     });
   });
+});
+
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+  }
 });
 
 // ============================================================
