@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -11,13 +11,16 @@ export function DataProvider({ children }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastFetch, setLastFetch] = useState(null);
+  const [forcedDate, setForcedDate] = useState('');
 
-  const fetchAllData = async (silent = true) => {
+  const fetchAllData = useCallback(async (silent = true) => {
     try {
       if (!silent) setLoading(true);
+      const testDateQuery = forcedDate ? `?date=${forcedDate}` : '';
+      
       const [statsRes, attendanceRes, devicesRes, studentsRes] = await Promise.all([
-        axios.get('/api/stats'),
-        axios.get('/api/attendance'),
+        axios.get(`/api/stats${testDateQuery}`),
+        axios.get(`/api/attendance${testDateQuery}`),
         axios.get('/api/devices'),
         axios.get('/api/students')
       ]);
@@ -35,7 +38,7 @@ export function DataProvider({ children }) {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [forcedDate]);
 
   useEffect(() => {
     // Initial fetch, not silent
@@ -47,10 +50,10 @@ export function DataProvider({ children }) {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchAllData, forcedDate]);
 
   return (
-    <DataContext.Provider value={{ stats, attendance, devices, students, loading, lastFetch, refetch: () => fetchAllData(false) }}>
+    <DataContext.Provider value={{ stats, attendance, devices, students, loading, lastFetch, refetch: () => fetchAllData(false), forcedDate, setForcedDate }}>
       {children}
     </DataContext.Provider>
   );

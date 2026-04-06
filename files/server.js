@@ -424,6 +424,9 @@ app.get('/api/attendance', (req, res) => {
 // ── STATISTICS API ──
 app.get('/api/stats', (req, res) => {
   const stats = {};
+  const dateParam = req.query.date;
+  const dateQueryStr = dateParam ? "DATE(?)" : "DATE('now')";
+  const dateQueryParams = dateParam ? [dateParam] : [];
   
   // Total students
   db.get('SELECT COUNT(*) as count FROM students WHERE active = 1', (err, row) => {
@@ -436,7 +439,8 @@ app.get('/api/stats', (req, res) => {
       // Today's attendance
       db.get(
         `SELECT COUNT(*) as count FROM attendance 
-         WHERE DATE(timestamp) = DATE('now')`,
+         WHERE DATE(timestamp) = ${dateQueryStr}`,
+        dateQueryParams,
         (err, row) => {
           stats.todayAttendance = row ? row.count : 0;
           
@@ -449,6 +453,126 @@ app.get('/api/stats', (req, res) => {
       );
     });
   });
+});
+
+// ── NOTIFY ALL API ──
+app.post('/api/notify-all', async (req, res) => {
+  if (!EMAIL_CONFIG.enabled || !transporter) {
+    return res.status(500).json({ error: 'Email service is not enabled or not configured.' });
+  }
+
+  const { date } = req.body;
+  if (!date) {
+    return res.status(400).json({ error: 'Date is required.' });
+  }
+
+  try {
+    // 1. Get all active students
+    db.all('SELECT * FROM students WHERE active = 1', [], async (err, activeStudents) => {
+      if (err) return res.status(500).json({ error: 'Database error fetching students.' });
+
+      // 2. Get attendance records for the given date
+      db.all(
+        'SELECT student_id, min(timestamp) as first_scan FROM attendance WHERE DATE(timestamp) = DATE(?) GROUP BY student_id', 
+        [date], 
+        async (err, attendanceRecords) => {
+          if (err) return res.status(500).json({ error: 'Database error fetching attendance.' });
+
+          // Map of student_id -> attendance_record
+          const attendanceMap = {};
+          attendanceRecords.forEach(record => {
+            if (record.student_id) {
+              attendanceMap[record.student_id] = record;
+            }
+          });
+
+          let sentCount = 0;
+          let failCount = 0;
+
+          // Process each student asynchronously
+          for (const student of activeStudents) {
+            const hasAttended = !!attendanceMap[student.id];
+            
+            // Format basic date for subject line
+            const formattedDateStr = moment(date).format('MMMM DD, YYYY');
+            
+            const subject = hasAttended 
+              ? `✅ Attendance Status: Present - ${formattedDateStr}`
+              : `❌ Attendance Status: Absent - ${formattedDateStr}`;
+
+            const htmlBody = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, ${hasAttended ? '#667eea, #764ba2' : '#ea6666, #a24b4b'}); color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+                  <h1 style="margin: 0;">Daily Attendance Notice</h1>
+                </div>
+                <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+                  <p style="font-size: 16px; color: #333;">Hello <strong>${student.name}</strong>,</p>
+                  
+                  ${hasAttended 
+                    ? `<p style="font-size: 14px; color: #666;">We have recorded your attendance for <strong>${formattedDateStr}</strong>.</p>`
+                    : `<p style="font-size: 14px; color: #666;">We noticed you were <strong>absent</strong> on <strong>${formattedDateStr}</strong>. Please ensure to attend or contact administration if this is an error.</p>`
+                  }
+                  
+                  <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                    <table style="width: 100%; font-size: 14px; color: #333;">
+                      <tr>
+                        <td style="padding: 8px 0;"><strong>Student:</strong></td>
+                        <td>${student.name}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;"><strong>Class:</strong></td>
+                        <td>${student.class || 'Not specified'}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0;"><strong>Status:</strong></td>
+                        <td><strong>${hasAttended ? 'Present ✅' : 'Absent ❌'}</strong></td>
+                      </tr>
+                      ${hasAttended ? `
+                      <tr>
+                        <td style="padding: 8px 0;"><strong>Earliest Scan:</strong></td>
+                        <td>${moment(attendanceMap[student.id].first_scan).format('hh:mm A')}</td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                  </div>
+                  
+                  <p style="font-size: 12px; color: #999; margin-top: 20px;">
+                    This is an automated message from Attendly Attendance System.
+                  </p>
+                </div>
+              </div>
+            `;
+
+            const mailOptions = {
+              from: EMAIL_CONFIG.from,
+              to: student.email,
+              subject,
+              html: htmlBody
+            };
+
+            try {
+              await transporter.sendMail(mailOptions);
+              sentCount++;
+              if (hasAttended && attendanceMap[student.id]) {
+                // optionally we could update email_sent flag, but this is a broad notice
+              }
+            } catch (error) {
+              console.error(`❌ Failed to send notice to ${student.email}:`, error.message);
+              failCount++;
+            }
+          }
+
+          res.json({ 
+            success: true, 
+            message: `Notices sent based on attendance of ${date}`,
+            stats: { total: activeStudents.length, sent: sentCount, failed: failCount }
+          });
+        }
+      );
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Handle React routing, return all requests to React app
