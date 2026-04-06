@@ -9,11 +9,18 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 
+/**
+ * ============================================================
+ *  ATTENDLY FIRMWARE v2.2 (Production Ready)
+ *  Features: Physical Config Switch, Offline Queue, RTC
+ * ============================================================
+ */
+
 // ================= PIN =================
 #define SS_PIN     5
 #define RST_PIN    4
 #define BUZZER_PIN 2
-#define BUTTON_PIN 32   // HIGH when wires connected
+#define BUTTON_PIN 32   // HIGH = Config Mode, LOW = Card Mode
 
 // ================= OBJECTS =================
 MFRC522 rfid(SS_PIN, RST_PIN);
@@ -23,18 +30,13 @@ WebServer server(80);
 
 // ================= STATE =================
 bool AP_MODE = false;
-bool isSyncing = false;
-
 String DEVICE_MAC = "";
 String configDeviceName = "Attendly_Scanner";
 String configSSID = "";
 String configPass = "";
-String configUrl = "http://192.168.1.100:3001/api";
-int syncDelay = 30;
-
-const char* LOG_FILE  = "/logs.txt";
-const char* TEMP_FILE = "/upload.tmp";
-unsigned long lastSync = 0;
+String configUrl = "http://192.168.0.111:3001/api"; 
+unsigned long lastSyncCheck = 0;
+const unsigned long SYNC_INTERVAL = 30000; 
 
 // ================= BUZZER =================
 void beep(int ms = 100) {
@@ -42,14 +44,9 @@ void beep(int ms = 100) {
   delay(ms);
   digitalWrite(BUZZER_PIN, LOW);
 }
-
-void beepSuccess() {
-  beep(100); delay(80); beep(100);
-}
-
-void beepError() {
-  beep(600);
-}
+void beepSuccess() { beep(100); delay(50); beep(100); }
+void beepSavedLocal() { beep(50); } 
+void beepError() { beep(600); }
 
 // ================= TIME =================
 String getISO8601(DateTime dt) {
@@ -60,228 +57,237 @@ String getISO8601(DateTime dt) {
   return String(buf);
 }
 
-// ================= WIFI =================
-bool connectWiFi() {
-  if (configSSID.length() == 0) return false;
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(configSSID.c_str(), configPass.c_str());
-
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20) {
-    delay(500);
-    retry++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("[WiFi] Connected");
-    beepSuccess();
-    return true;
+// ================= SPIFFS QUEUE MANAGEMENT =================
+void saveToQueue(String uid, String timestamp) {
+  DynamicJsonDocument doc(4096);
+  File file = SPIFFS.open("/queue.json", FILE_READ);
+  if (file) {
+    deserializeJson(doc, file);
+    file.close();
   } else {
-    Serial.println("[WiFi] Failed");
-    return false;
+    doc.to<JsonArray>();
   }
+
+  JsonArray logs = doc.as<JsonArray>();
+  JsonObject log = logs.createNestedObject();
+  log["uid"] = uid;
+  log["timestamp"] = timestamp;
+
+  file = SPIFFS.open("/queue.json", FILE_WRITE);
+  serializeJson(doc, file);
+  file.close();
+  Serial.printf("[SPIFFS] Saved: %s at %s\n", uid.c_str(), timestamp.c_str());
 }
 
-// ================= SYNC =================
-void syncData() {
-  if (isSyncing) return;
-  isSyncing = true;
+void syncLocalData() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (!SPIFFS.exists("/queue.json")) return;
 
-  if (WiFi.status() != WL_CONNECTED) {
-    isSyncing = false;
-    return;
-  }
-
-  if (!SPIFFS.exists(LOG_FILE)) {
-    isSyncing = false;
-    return;
-  }
-
-  SPIFFS.rename(LOG_FILE, TEMP_FILE);
-  File file = SPIFFS.open(TEMP_FILE, FILE_READ);
-  if (!file) {
-    isSyncing = false;
-    return;
-  }
-
+  File file = SPIFFS.open("/queue.json", FILE_READ);
   DynamicJsonDocument doc(8192);
-  doc["mac"] = DEVICE_MAC;
-  JsonArray logs = doc.createNestedArray("logs");
-
-  int count = 0;
-  while (file.available() && count < 100) {
-    String line = file.readStringUntil('\n');
-    line.trim();
-    if (line.length() == 0) continue;
-
-    int comma = line.indexOf(',');
-    if (comma == -1) continue;
-
-    JsonObject obj = logs.createNestedObject();
-    obj["uid"]  = line.substring(0, comma);
-    obj["time"] = line.substring(comma + 1);
-    count++;
-  }
+  DeserializationError error = deserializeJson(doc, file);
   file.close();
 
-  if (count == 0) {
-    SPIFFS.remove(TEMP_FILE);
-    isSyncing = false;
+  if (error || doc.as<JsonArray>().size() == 0) {
+    SPIFFS.remove("/queue.json");
     return;
   }
+
+  JsonArray logs = doc.as<JsonArray>();
+  Serial.printf("[Sync] Attempting to sync %d records...\n", logs.size());
+
+  DynamicJsonDocument payloadDoc(10240);
+  payloadDoc["mac"] = DEVICE_MAC;
+  payloadDoc["deviceName"] = configDeviceName;
+  payloadDoc["logs"] = logs;
+
+  String payload;
+  serializeJson(payloadDoc, payload);
+
+  HTTPClient http;
+  String url = configUrl;
+  if (!url.endsWith("/sync")) {
+    if (url.endsWith("/")) url += "sync";
+    else url += "/sync";
+  }
+  
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
+  int code = http.POST(payload);
+
+  if (code >= 200 && code < 300) {
+    Serial.println("[Sync] Success! Clearing queue.");
+    SPIFFS.remove("/queue.json");
+    beepSuccess();
+  } else {
+    Serial.printf("[Sync] Failed (Code %d). Keeping queue.\n", code);
+  }
+  http.end();
+}
+
+// ================= REAL-TIME POST =================
+void postRealTime(String uid, String timestamp) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[HTTP] WiFi Down. Record stays in queue.");
+    return;
+  }
+
+  DynamicJsonDocument doc(512);
+  doc["mac"] = DEVICE_MAC;
+  doc["deviceName"] = configDeviceName;
+  doc["uid"] = uid;
+  doc["timestamp"] = timestamp;
 
   String payload;
   serializeJson(doc, payload);
 
   HTTPClient http;
   String url = configUrl;
-  if (!url.endsWith("/sync")) url += "/sync";
+  if (!url.endsWith("/attendance")) {
+    if (url.endsWith("/")) url += "attendance";
+    else url += "/attendance";
+  }
 
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
-
+  http.setTimeout(3000);
   int code = http.POST(payload);
 
-  if (code == 200 || code == 201) {
-    SPIFFS.remove(TEMP_FILE);
-    Serial.println("[Sync] Success");
+  if (code >= 200 && code < 300) {
+    Serial.println("[HTTP] Real-time success!");
     beepSuccess();
   } else {
-    // If failed, move TEMP back to LOG, or append if LOG recreated
-    if (SPIFFS.exists(LOG_FILE)) {
-       File temp = SPIFFS.open(TEMP_FILE, FILE_READ);
-       File log = SPIFFS.open(LOG_FILE, FILE_APPEND);
-       while(temp.available()) log.write(temp.read());
-       temp.close(); log.close();
-       SPIFFS.remove(TEMP_FILE);
-    } else {
-       SPIFFS.rename(TEMP_FILE, LOG_FILE);
-    }
-    Serial.println("[Sync] Failed");
-    beepError();
+    Serial.printf("[HTTP] Real-time failed (%d). Record queued.\n", code);
   }
-
   http.end();
-  isSyncing = false;
 }
 
 // ================= CONFIG PORTAL =================
 void handleRoot() {
-  String html = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'><style>body{font-family:sans-serif;padding:20px;}input{width:100%;padding:10px;margin:5px 0;}button{width:100%;padding:10px;background:#3498db;color:#fff;border:none;}</style></head><body>";
-  html += "<h2>Attendly Setup</h2><form action='/save' method='POST'>";
+  String html = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'>";
+  html += "<style>body{font-family:sans-serif;padding:20px;background:#f4f7f6;} .card{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);} input{width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:5px;} button{width:100%;padding:12px;background:#3498db;color:#fff;border:none;border-radius:5px;font-weight:bold;}</style>";
+  html += "</head><body><div class='card'>";
+  html += "<h2>Attendly Config</h2><p>MAC: " + DEVICE_MAC + "</p><form action='/save' method='POST'>";
+  html += "Device Name:<br><input type='text' name='name' value='" + configDeviceName + "'>";
   html += "WiFi SSID:<br><input type='text' name='ssid' value='" + configSSID + "'>";
   html += "WiFi Pass:<br><input type='password' name='password' value=''>";
-  html += "Server URL:<br><input type='text' name='url' value='" + configUrl + "'>";
-  html += "Sync Delay (sec):<br><input type='number' name='delay' value='" + String(syncDelay) + "'>";
-  html += "<button type='submit'>Save & Restart</button></form></body></html>";
+  html += "Server URL (include /api):<br><input type='text' name='url' value='" + configUrl + "'>";
+  html += "<button type='submit'>Save & Restart</button></form></div></body></html>";
   server.send(200, "text/html", html);
 }
 
 void handleSave() {
+  if (server.hasArg("name")) configDeviceName = server.arg("name");
   if (server.hasArg("ssid")) configSSID = server.arg("ssid");
-  if (server.hasArg("password")) configPass = server.arg("password");
+  
+  // Only update password if a new one is provided
+  if (server.hasArg("password") && server.arg("password").length() > 0) {
+    configPass = server.arg("password");
+  }
+  
   if (server.hasArg("url")) configUrl = server.arg("url");
-  if (server.hasArg("delay")) syncDelay = server.arg("delay").toInt();
 
   preferences.begin("attendly", false);
+  preferences.putString("name", configDeviceName);
   preferences.putString("ssid", configSSID);
   preferences.putString("password", configPass);
   preferences.putString("url", configUrl);
-  preferences.putInt("delay", syncDelay);
   preferences.end();
 
-  server.send(200, "text/plain", "Saved. Restarting...");
+  server.send(200, "text/plain", "Settings Saved. Please switch button to LOW to use.");
   delay(1000);
-  ESP.restart();
 }
 
 void startAPMode() {
   if (AP_MODE) return;
-
   AP_MODE = true;
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Attendly_Setup", "");
-
-  Serial.println("[AP] Started");
-  beep(400);
-
+  Serial.println("[AP] Mode Active: 192.168.4.1");
+  beep(400); delay(100); beep(400);
   server.on("/", handleRoot);
   server.on("/save", HTTP_POST, handleSave);
   server.begin();
 }
 
-// ================= SWITCH =================
-void handleConfigSwitch() {
-  static bool lastState = false;
-  bool currentState = digitalRead(BUTTON_PIN) == HIGH;
-
-  if (currentState && !lastState) {
-    Serial.println("[Switch] CONFIG ON");
-    startAPMode();
-  }
-
-  if (!currentState && lastState) {
-    Serial.println("[Switch] CONFIG OFF → Restart");
-    delay(1000);
-    ESP.restart();
-  }
-
-  lastState = currentState;
-}
-
-// ================= PREFS =================
-void loadPreferences() {
-  preferences.begin("attendly", false);
-  configSSID = preferences.getString("ssid", "");
-  configPass = preferences.getString("password", "");
-  configUrl = preferences.getString("url", "http://192.168.1.100:3001/api");
-  syncDelay = preferences.getInt("delay", 30);
-  preferences.end();
-}
-
 // ================= SETUP =================
 void setup() {
   Serial.begin(115200);
-
   pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLDOWN);
 
-  loadPreferences();
+  if (!SPIFFS.begin(true)) Serial.println("[SPIFFS] Mount Failed");
+
+  preferences.begin("attendly", false);
+  configDeviceName = preferences.getString("name", "Attendly_Scanner");
+  configSSID = preferences.getString("ssid", "ImrajHossainAraf");
+  configPass = preferences.getString("password", "123123123");
+  configUrl = preferences.getString("url", "http://192.168.0.111:3001/api");
+  preferences.end();
 
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
   DEVICE_MAC = WiFi.macAddress();
   DEVICE_MAC.replace(":", "");
-  DEVICE_MAC.toUpperCase();
+  Serial.print("[System] MAC: "); Serial.println(DEVICE_MAC);
 
   SPI.begin();
   rfid.PCD_Init();
 
   Wire.begin();
-  rtc.begin();
+  if (rtc.begin()) Serial.println("[RTC] Initialized");
+  else beepError();
 
-  SPIFFS.begin(true);
-
-  connectWiFi();
-
-  Serial.println("[System] Ready");
+  // Only try connecting WiFi if not in Config Mode
+  if (digitalRead(BUTTON_PIN) == LOW && configSSID != "") {
+    WiFi.begin(configSSID.c_str(), configPass.c_str());
+    Serial.print("[WiFi] Connecting to "); Serial.println(configSSID);
+    
+    // Wait for connection (max 10 seconds)
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("\n[WiFi] Connected!");
+      Serial.print("[WiFi] IP: "); Serial.println(WiFi.localIP());
+      beepSuccess();
+    } else {
+      Serial.println("\n[WiFi] Connection Failed (Timeout)");
+    }
+  }
 }
 
 // ================= LOOP =================
 void loop() {
+  // Check Button State
+  bool buttonState = digitalRead(BUTTON_PIN) == HIGH;
 
-  handleConfigSwitch();
-
-  if (AP_MODE) {
+  if (buttonState) {
+    // ENTER CONFIG MODE
+    if (!AP_MODE) startAPMode();
     server.handleClient();
-    return;
+    return; // Stop card entry mode while in config
+  } else {
+    // EXIT CONFIG MODE (if we were in it)
+    if (AP_MODE) {
+      Serial.println("[System] Exiting Config Mode... Restarting");
+      delay(500);
+      ESP.restart();
+    }
   }
 
-  // ===== RFID FAST SCAN =====
-  static String lastUID = "";
-  static unsigned long lastScanTime = 0;
+  // Periodic Sync (Only if WiFi connected)
+  if (WiFi.status() == WL_CONNECTED && millis() - lastSyncCheck > SYNC_INTERVAL) {
+    lastSyncCheck = millis();
+    syncLocalData();
+  }
 
-  if (!isSyncing && rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+  // RFID Scan
+  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     String uid = "";
     for (byte i = 0; i < rfid.uid.size; i++) {
       if (rfid.uid.uidByte[i] < 0x10) uid += "0";
@@ -289,39 +295,21 @@ void loop() {
     }
     uid.toUpperCase();
 
-    // High Speed Optimization: 
-    // Allow immediate scanning of different cards, but 3-second cooldown for the SAME card.
+    static String lastUID = "";
+    static unsigned long lastScanTime = 0;
     if (uid == lastUID && millis() - lastScanTime < 3000) {
-      rfid.PICC_HaltA();
-      rfid.PCD_StopCrypto1();
-      return; 
+      rfid.PICC_HaltA(); rfid.PCD_StopCrypto1(); return;
     }
-
-    lastUID = uid;
-    lastScanTime = millis();
+    lastUID = uid; lastScanTime = millis();
 
     DateTime now = rtc.now();
-    String isoTime = getISO8601(now);
+    String timestamp = getISO8601(now);
 
-    File file = SPIFFS.open(LOG_FILE, FILE_APPEND);
-    if (file) {
-      file.println(uid + "," + isoTime);
-      file.close();
-      beep(60); // Quick feedback
-    } else {
-      beepError();
-    }
+    beepSavedLocal();
+    saveToQueue(uid, timestamp);
+    postRealTime(uid, timestamp); 
 
     rfid.PICC_HaltA();
     rfid.PCD_StopCrypto1();
-  }
-
-  // ===== AUTO SYNC =====
-  if (millis() - lastSync > (unsigned long)(syncDelay * 1000)) {
-    lastSync = millis();
-
-    if (WiFi.status() == WL_CONNECTED || connectWiFi()) {
-      syncData();
-    }
   }
 }

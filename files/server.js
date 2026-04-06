@@ -197,78 +197,12 @@ app.post('/api/attendance', async (req, res) => {
   const { mac, deviceName, uid, timestamp } = req.body;
 
   if (!mac || !uid || !timestamp) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    console.log('⚠️  Invalid attendance request:', req.body);
+    return res.status(400).json({ error: 'Missing required fields: mac, uid, or timestamp' });
   }
 
-  console.log(`📍 Attendance received: UID=${uid} from ${deviceName || mac}`);
-
-  // Update device last_seen
-  db.run(
-    `INSERT INTO devices (mac, name, last_seen) VALUES (?, ?, ?)
-     ON CONFLICT(mac) DO UPDATE SET last_seen = ?, name = COALESCE(?, name)`,
-    [mac, deviceName || 'Unknown Device', timestamp, timestamp, deviceName]
-  );
-
-  // Find student by UID
-  db.get('SELECT * FROM students WHERE uid = ? AND active = 1', [uid], async (err, student) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    let studentId = null;
-    let studentName = 'Unknown Student';
-
-    if (student) {
-      studentId = student.id;
-      studentName = student.name;
-      console.log(`👤 Student found: ${student.name} (${student.email})`);
-    } else {
-      console.log(`⚠️  Unknown UID: ${uid} - Creating placeholder`);
-      // Auto-register unknown UIDs for later assignment
-      db.run(
-        'INSERT OR IGNORE INTO students (uid, name, email, active) VALUES (?, ?, ?, 0)',
-        [uid, `Unknown-${uid}`, `unknown-${uid}@pending.com`]
-      );
-    }
-
-    // Record attendance
-    db.run(
-      `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
-       VALUES (?, ?, ?, ?, ?, 0)`,
-      [studentId, mac, uid, studentName, timestamp],
-      async function(err) {
-        if (err) {
-          console.error('Failed to record attendance:', err);
-          return res.status(500).json({ error: 'Failed to record attendance' });
-        }
-
-        const attendanceId = this.lastID;
-        console.log(`✅ Attendance recorded: ID=${attendanceId}`);
-
-        // Send email if student exists and is active
-        if (student && student.active) {
-          db.get('SELECT * FROM devices WHERE mac = ?', [mac], async (err, device) => {
-            const deviceInfo = device || { name: deviceName || 'Scanner', location: 'Unknown' };
-            
-            const emailSent = await sendAttendanceEmail(student, deviceInfo, timestamp);
-            
-            // Update email_sent status
-            if (emailSent) {
-              db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [attendanceId]);
-            }
-          });
-        }
-
-        res.json({
-          success: true,
-          message: 'Attendance recorded',
-          student: studentName,
-          timestamp: timestamp
-        });
-      }
-    );
-  });
+  console.log(`📍 [Real-time] UID=${uid} from ${deviceName || mac}`);
+  processAttendanceRecord(mac, deviceName, uid, timestamp, res);
 });
 
 // ── SYNC ENDPOINT (Batch offline data from ESP32) ──
@@ -276,12 +210,13 @@ app.post('/api/sync', async (req, res) => {
   const { mac, deviceName, logs } = req.body;
 
   if (!mac || !logs || !Array.isArray(logs)) {
-    return res.status(400).json({ error: 'Invalid sync data' });
+    console.log('⚠️  Invalid sync request from:', mac);
+    return res.status(400).json({ error: 'Invalid sync data: logs must be an array' });
   }
 
-  console.log(`🔄 Sync received: ${logs.length} records from ${deviceName || mac}`);
+  console.log(`🔄 [Batch Sync] ${logs.length} records from ${deviceName || mac}`);
 
-  // Update device
+  // Update device last_seen
   const now = new Date().toISOString();
   db.run(
     `INSERT INTO devices (mac, name, last_seen) VALUES (?, ?, ?)
@@ -293,58 +228,90 @@ app.post('/api/sync', async (req, res) => {
   let errors = 0;
 
   for (const log of logs) {
-    const { uid, timestamp } = log;
+    const { uid, timestamp, time } = log;
+    const finalTime = timestamp || time;
     
-    if (!uid || !timestamp) {
+    if (!uid || !finalTime) {
       errors++;
       continue;
     }
 
-    // Find student
-    const student = await new Promise((resolve) => {
-      db.get('SELECT * FROM students WHERE uid = ? AND active = 1', [uid], (err, row) => {
-        resolve(err ? null : row);
+    try {
+      await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM students WHERE uid = ? AND active = 1', [uid], (err, student) => {
+          if (err) return reject(err);
+          
+          const studentId = student ? student.id : null;
+          const studentName = student ? student.name : `Unknown-${uid}`;
+
+          db.run(
+            `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
+             VALUES (?, ?, ?, ?, ?, 0)`,
+            [studentId, mac, uid, studentName, finalTime],
+            function(err) {
+              if (err) return reject(err);
+              processed++;
+              
+              // Async email sending (don't block the loop)
+              if (student && student.active) {
+                const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
+                sendAttendanceEmail(student, deviceInfo, finalTime).then(sent => {
+                  if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [this.lastID]);
+                });
+              }
+              resolve();
+            }
+          );
+        });
       });
-    });
+    } catch (e) {
+      console.error('❌ Error processing sync record:', e.message);
+      errors++;
+    }
+  }
+
+  res.json({ success: true, processed, errors, total: logs.length });
+});
+
+async function processAttendanceRecord(mac, deviceName, uid, timestamp, res) {
+  // Update device
+  db.run(
+    `INSERT INTO devices (mac, name, last_seen) VALUES (?, ?, ?)
+     ON CONFLICT(mac) DO UPDATE SET last_seen = ?, name = COALESCE(?, name)`,
+    [mac, deviceName || 'Unknown Device', timestamp, timestamp, deviceName]
+  );
+
+  db.get('SELECT * FROM students WHERE uid = ? AND active = 1', [uid], (err, student) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
 
     const studentId = student ? student.id : null;
     const studentName = student ? student.name : `Unknown-${uid}`;
 
-    // Insert attendance
-    await new Promise((resolve) => {
-      db.run(
-        `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
-         VALUES (?, ?, ?, ?, ?, 0)`,
-        [studentId, mac, uid, studentName, timestamp],
-        (err) => {
-          if (err) {
-            errors++;
-          } else {
-            processed++;
-            
-            // Send email for valid students
-            if (student && student.active) {
-              db.get('SELECT * FROM devices WHERE mac = ?', [mac], async (err, device) => {
-                const deviceInfo = device || { name: deviceName || 'Scanner', location: 'Unknown' };
-                await sendAttendanceEmail(student, deviceInfo, timestamp);
-              });
-            }
-          }
-          resolve();
+    if (!student) {
+      db.run('INSERT OR IGNORE INTO students (uid, name, email, active) VALUES (?, ?, ?, 0)',
+        [uid, `Unknown-${uid}`, `unknown-${uid}@pending.com`]);
+    }
+
+    db.run(
+      `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
+       VALUES (?, ?, ?, ?, ?, 0)`,
+      [studentId, mac, uid, studentName, timestamp],
+      async function(err) {
+        if (err) return res.status(500).json({ error: 'Failed to record' });
+
+        const attendanceId = this.lastID;
+        if (student && student.active) {
+          const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
+          const sent = await sendAttendanceEmail(student, deviceInfo, timestamp);
+          if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [attendanceId]);
         }
-      );
-    });
-  }
 
-  console.log(`✅ Sync complete: ${processed} processed, ${errors} errors`);
-
-  res.json({
-    success: true,
-    processed: processed,
-    errors: errors,
-    total: logs.length
+        res.json({ success: true, student: studentName, timestamp });
+      }
+    );
   });
-});
+}
+
 
 // ── STUDENTS API ──
 app.get('/api/students', (req, res) => {
@@ -496,7 +463,7 @@ process.on('SIGINT', () => {
     }
     process.exit(0);
   });
-});
+}); 
 
 // Start the server
 startServer();

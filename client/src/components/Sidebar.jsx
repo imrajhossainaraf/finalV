@@ -16,7 +16,7 @@ export default function Sidebar() {
         <div className="bg-primary/10 p-2 rounded-xl text-primary">
           <Database size={24} />
         </div>
-        <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Attendly</h1>
+        <h1 className="text-xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">Attendly</h1>
       </div>
       
       <nav className="flex-1 py-6 px-4 space-y-2">
