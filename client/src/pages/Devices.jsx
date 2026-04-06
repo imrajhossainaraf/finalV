@@ -1,64 +1,131 @@
 import { useData } from '../context/DataContext';
-import { Wifi, WifiOff, Cpu, MapPin } from 'lucide-react';
+import { Wifi, WifiOff, Cpu, MapPin, Activity } from 'lucide-react';
 
 export default function Devices() {
   const { devices } = useData();
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Device Monitor</h1>
-        <p className="text-base-content/60 mt-1">Manage connected ESP32 RFID scanners.</p>
+      {/* Header */}
+      <div className="animate-fade-in-up">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--attendly-text-primary)' }}>
+          Device Monitor
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
+          Manage connected ESP32 RFID scanners.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {devices?.map((device) => {
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {devices?.map((device, idx) => {
           const lastSeenDate = new Date(device.last_seen);
-          const isOnline = (new Date() - lastSeenDate) < 5 * 60 * 1000; // 5 minutes threshold
+          const isOnline = (new Date() - lastSeenDate) < 5 * 60 * 1000;
 
           return (
-            <div key={device.mac} className="bg-base-100 p-6 rounded-2xl border border-base-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
-              <div className={`absolute top-0 left-0 w-1 h-full ${isOnline ? 'bg-success' : 'bg-base-300'}`}></div>
+            <div
+              key={device.mac}
+              className="glass-card p-6 relative overflow-hidden group animate-fade-in-up"
+              style={{ animationDelay: `${idx * 0.1}s` }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = isOnline
+                  ? '0 8px 32px rgba(16,185,129,0.1), 0 0 0 1px rgba(16,185,129,0.15)'
+                  : '0 8px 32px rgba(99,102,241,0.08)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '';
+                e.currentTarget.style.transform = '';
+              }}
+            >
+              {/* Left accent bar */}
+              <div
+                className="absolute top-0 left-0 w-1 h-full rounded-r-full"
+                style={{
+                  background: isOnline
+                    ? 'linear-gradient(180deg, #10b981 0%, #06b6d4 100%)'
+                    : 'rgba(100,116,139,0.3)',
+                }}
+              />
               
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={`p-3 rounded-xl ${isOnline ? 'bg-success/10 text-success' : 'bg-base-200 text-base-content/50'}`}>
-                    <Cpu size={24} />
+                  <div
+                    className="p-3 rounded-xl transition-transform group-hover:scale-110"
+                    style={{
+                      background: isOnline
+                        ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.15))'
+                        : 'var(--attendly-bg-elevated)',
+                      color: isOnline ? '#34d399' : 'var(--attendly-text-muted)',
+                    }}
+                  >
+                    <Cpu size={22} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-lg">{device.name || 'Unnamed Device'}</h3>
-                    <p className="font-mono text-xs text-base-content/50 bg-base-200 px-2 py-1 rounded inline-block mt-1">
+                    <h3 className="font-bold text-base" style={{ color: 'var(--attendly-text-primary)' }}>
+                      {device.name || 'Unnamed Device'}
+                    </h3>
+                    <p
+                      className="font-mono text-xs px-2 py-0.5 rounded inline-block mt-1"
+                      style={{ background: 'var(--attendly-bg-elevated)', color: 'var(--attendly-text-muted)' }}
+                    >
                       {device.mac}
                     </p>
                   </div>
                 </div>
-                {isOnline ? (
-                  <Wifi size={20} className="text-success" />
-                ) : (
-                  <WifiOff size={20} className="text-base-content/30" />
-                )}
+                <div
+                  className="p-1.5 rounded-lg"
+                  style={{
+                    background: isOnline ? 'rgba(16,185,129,0.1)' : 'transparent',
+                    color: isOnline ? '#34d399' : 'var(--attendly-text-muted)',
+                  }}
+                >
+                  {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
+                </div>
               </div>
 
-              <div className="space-y-3 mt-6">
-                <div className="flex items-center gap-2 text-sm text-base-content/70">
-                  <MapPin size={16} />
+              <div className="space-y-3 mt-5">
+                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--attendly-text-secondary)' }}>
+                  <MapPin size={14} />
                   <span>{device.location || 'Location Not Set'}</span>
                 </div>
                 
-                <div className="bg-base-200/50 p-3 rounded-xl flex justify-between items-center mt-4">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-base-content/50">Status</span>
+                {/* Status bar */}
+                <div
+                  className="p-3 rounded-xl flex justify-between items-center mt-4"
+                  style={{
+                    background: 'var(--attendly-bg-elevated)',
+                    border: '1px solid var(--attendly-border)',
+                  }}
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--attendly-text-muted)' }}>
+                    Status
+                  </span>
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2.5 w-2.5">
-                      {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>}
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? 'bg-success' : 'bg-base-content/30'}`}></span>
+                      {isOnline && (
+                        <span
+                          className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                          style={{ background: '#34d399' }}
+                        />
+                      )}
+                      <span
+                        className="relative inline-flex rounded-full h-2.5 w-2.5"
+                        style={{
+                          background: isOnline ? '#34d399' : 'rgba(100,116,139,0.4)',
+                          boxShadow: isOnline ? '0 0 8px rgba(16,185,129,0.5)' : 'none',
+                        }}
+                      />
                     </span>
-                    <span className={`text-sm font-medium ${isOnline ? 'text-success' : 'text-base-content/50'}`}>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: isOnline ? '#34d399' : 'var(--attendly-text-muted)' }}
+                    >
                       {isOnline ? 'Online' : 'Offline'}
                     </span>
                   </div>
                 </div>
                 
-                <div className="text-xs text-center text-base-content/50 pt-2">
+                <div className="text-xs text-center pt-2" style={{ color: 'var(--attendly-text-muted)' }}>
                   Last seen: {new Date(device.last_seen).toLocaleString()}
                 </div>
               </div>
@@ -67,10 +134,17 @@ export default function Devices() {
         })}
 
         {devices?.length === 0 && (
-          <div className="col-span-full py-16 text-center text-base-content/50 bg-base-100 rounded-2xl border border-base-200 border-dashed">
-            <Cpu size={48} className="mx-auto mb-4 opacity-20" />
-            <h3 className="text-lg font-semibold mb-1">No Devices Found</h3>
-            <p className="text-sm">Connect an ESP32 to the network to view it here.</p>
+          <div
+            className="col-span-full py-16 text-center glass-card animate-fade-in-up"
+            style={{ border: '1px dashed var(--attendly-border)' }}
+          >
+            <Cpu size={48} className="mx-auto mb-4" style={{ color: 'var(--attendly-text-muted)', opacity: 0.2 }} />
+            <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--attendly-text-secondary)' }}>
+              No Devices Found
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
+              Connect an ESP32 to the network to view it here.
+            </p>
           </div>
         )}
       </div>

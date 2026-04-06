@@ -17,8 +17,8 @@ export default function App() {
         <ToastContainer 
           position="top-right" 
           autoClose={3000} 
-          theme="light"
-          toastClassName="rounded-xl shadow-lg border border-base-200"
+          theme="dark"
+          toastClassName="!bg-[var(--attendly-bg-card)] !border !border-[var(--attendly-border)] !rounded-2xl !shadow-2xl"
         />
         <Routes>
           <Route path="/" element={<Layout />}>

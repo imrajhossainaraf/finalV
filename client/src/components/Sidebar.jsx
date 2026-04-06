@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Cpu, BarChart3, Database, Users } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Cpu, BarChart3, Users, Zap } from 'lucide-react';
 
 export default function Sidebar() {
   const navItems = [
@@ -11,41 +11,93 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-base-100 border-r border-base-200 h-screen hidden md:flex flex-col sticky top-0">
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-base-200">
-        <div className="bg-primary/10 p-2 rounded-xl text-primary">
-          <Database size={24} />
+    <aside
+      className="w-64 h-screen hidden md:flex flex-col sticky top-0 relative z-20"
+      style={{
+        background: 'linear-gradient(180deg, rgba(17,24,39,0.95) 0%, rgba(10,14,26,0.98) 100%)',
+        borderRight: '1px solid var(--attendly-border)',
+      }}
+    >
+      {/* Brand */}
+      <div
+        className="h-16 flex items-center gap-3 px-6"
+        style={{ borderBottom: '1px solid var(--attendly-border)' }}
+      >
+        <div
+          className="p-2 rounded-xl animate-pulse-glow"
+          style={{
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.2) 100%)',
+            color: '#818cf8',
+          }}
+        >
+          <Zap size={22} />
         </div>
-        <h1 className="text-xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">Attendly</h1>
+        <h1
+          className="text-xl font-bold tracking-tight"
+          style={{
+            background: 'linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #06b6d4 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Attendly
+        </h1>
       </div>
-      
-      <nav className="flex-1 py-6 px-4 space-y-2">
+
+      {/* Nav */}
+      <nav className="flex-1 py-6 px-3 space-y-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                isActive
-                  ? 'bg-primary text-primary-content font-semibold shadow-md shadow-primary/20 hover:shadow-primary/30'
-                  : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'
+              `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group ${
+                isActive ? '' : ''
               }`
             }
+            style={({ isActive }) =>
+              isActive
+                ? {
+                    background: 'linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(139,92,246,0.15) 100%)',
+                    color: '#a5b4fc',
+                    borderLeft: '3px solid #6366f1',
+                    boxShadow: '0 0 20px rgba(99,102,241,0.1)',
+                  }
+                : {
+                    color: 'var(--attendly-text-muted)',
+                    borderLeft: '3px solid transparent',
+                  }
+            }
           >
-            {item.icon}
+            <span className="group-hover:scale-110 transition-transform duration-200">{item.icon}</span>
             <span>{item.name}</span>
           </NavLink>
         ))}
       </nav>
-      
-      <div className="p-4 border-t border-base-200">
-        <div className="flex items-center gap-3 px-4 py-3 bg-base-200/50 rounded-xl">
-          <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold">
+
+      {/* User profile */}
+      <div className="p-4" style={{ borderTop: '1px solid var(--attendly-border)' }}>
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: 'rgba(99,102,241,0.06)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+            style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(99,102,241,0.3)',
+            }}
+          >
             AD
           </div>
           <div>
-            <p className="text-sm font-medium leading-none">Admin User</p>
-            <p className="text-xs text-base-content/60 mt-1">Superadmin</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--attendly-text-primary)' }}>
+              Admin User
+            </p>
+            <p className="text-xs" style={{ color: 'var(--attendly-text-muted)' }}>
+              Superadmin
+            </p>
           </div>
         </div>
       </div>
