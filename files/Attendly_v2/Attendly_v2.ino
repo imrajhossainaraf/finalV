@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <WebServer.h>
 #include <Preferences.h>
 #include <HTTPClient.h>
@@ -34,7 +35,7 @@ String DEVICE_MAC = "";
 String configDeviceName = "Attendly_Scanner";
 String configSSID = "";
 String configPass = "";
-String configUrl = "http://192.168.0.111:3001/api"; 
+String configUrl = "https://finalv.onrender.com/api"; 
 unsigned long lastSyncCheck = 0;
 const unsigned long SYNC_INTERVAL = 30000; 
 
@@ -105,13 +106,15 @@ void syncLocalData() {
   serializeJson(payloadDoc, payload);
 
   HTTPClient http;
+  WiFiClientSecure client;
+  client.setInsecure(); // Allow HTTPS without cert verification
   String url = configUrl;
   if (!url.endsWith("/sync")) {
     if (url.endsWith("/")) url += "sync";
     else url += "/sync";
   }
   
-  http.begin(url);
+  http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
   int code = http.POST(payload);
 
@@ -142,15 +145,17 @@ void postRealTime(String uid, String timestamp) {
   serializeJson(doc, payload);
 
   HTTPClient http;
+  WiFiClientSecure client;
+  client.setInsecure(); // Allow HTTPS without cert verification
   String url = configUrl;
   if (!url.endsWith("/attendance")) {
     if (url.endsWith("/")) url += "attendance";
     else url += "/attendance";
   }
 
-  http.begin(url);
+  http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(3000);
+  http.setTimeout(8000); // Render can be slow to wake up (cold start)
   int code = http.POST(payload);
 
   if (code >= 200 && code < 300) {
@@ -222,7 +227,7 @@ void setup() {
   configDeviceName = preferences.getString("name", "Attendly_Scanner");
   configSSID = preferences.getString("ssid", "ImrajHossainAraf");
   configPass = preferences.getString("password", "123123123");
-  configUrl = preferences.getString("url", "http://192.168.0.111:3001/api");
+  configUrl = preferences.getString("url", "https://finalv.onrender.com/api");
   preferences.end();
 
   WiFi.mode(WIFI_STA);
