@@ -79,9 +79,9 @@ function initDatabase() {
 const EMAIL_CONFIG = {
   enabled: true,  // Set to false to disable email sending
   service: 'gmail',  // 'gmail', 'outlook', 'yahoo', etc.
-  user: 'your-email@gmail.com',  // Your email address
-  password: 'your-app-password',  // Gmail App Password (not regular password)
-  from: 'Attendly System <your-email@gmail.com>'
+  user: 'imrajhossainaraf12@gmail.com',  // Your email address
+  password: 'gepw jorg gare hlgo',  // Gmail App Password (not regular password)
+  from: 'Attendly System <imrajhossainaraf12@gmail.com>'
 };
 
 let transporter = null;
