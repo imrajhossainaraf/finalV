@@ -5,7 +5,7 @@ import { Search, Download, Filter } from 'lucide-react';
 export default function Attendance() {
   const { attendance } = useData();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Filtering
   const filteredAttendance = attendance?.filter((record) => {

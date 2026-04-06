@@ -249,24 +249,33 @@ app.post('/api/sync', async (req, res) => {
           const studentId = student ? student.id : null;
           const studentName = student ? student.name : `Unknown-${uid}`;
 
-          db.run(
-            `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
-             VALUES (?, ?, ?, ?, ?, 0)`,
-            [studentId, mac, uid, studentName, finalTime],
-            function(err) {
-              if (err) return reject(err);
+          const dateOnly = finalTime.split('T')[0];
+          db.get('SELECT id FROM attendance WHERE uid = ? AND DATE(timestamp) = DATE(?)', [uid, dateOnly], (err, existing) => {
+            if (existing) {
+              // Already recorded today, skip
               processed++;
-              
-              // Async email sending (don't block the loop)
-              if (student && student.active) {
-                const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
-                sendAttendanceEmail(student, deviceInfo, finalTime).then(sent => {
-                  if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [this.lastID]);
-                });
-              }
-              resolve();
+              return resolve();
             }
-          );
+
+            db.run(
+              `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
+               VALUES (?, ?, ?, ?, ?, 0)`,
+              [studentId, mac, uid, studentName, finalTime],
+              function(err) {
+                if (err) return reject(err);
+                processed++;
+                
+                // Async email sending (don't block the loop)
+                if (student && student.active) {
+                  const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
+                  sendAttendanceEmail(student, deviceInfo, finalTime).then(sent => {
+                    if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [this.lastID]);
+                  });
+                }
+                resolve();
+              }
+            );
+          });
         });
       });
     } catch (e) {
@@ -297,23 +306,33 @@ async function processAttendanceRecord(mac, deviceName, uid, timestamp, res) {
         [uid, `Unknown-${uid}`, `unknown-${uid}@pending.com`]);
     }
 
-    db.run(
-      `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
-       VALUES (?, ?, ?, ?, ?, 0)`,
-      [studentId, mac, uid, studentName, timestamp],
-      async function(err) {
-        if (err) return res.status(500).json({ error: 'Failed to record' });
-
-        const attendanceId = this.lastID;
-        if (student && student.active) {
-          const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
-          const sent = await sendAttendanceEmail(student, deviceInfo, timestamp);
-          if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [attendanceId]);
-        }
-
-        res.json({ success: true, student: studentName, timestamp });
+    // Check if already exist today
+    const dateOnly = timestamp.split('T')[0]; // Extract YYYY-MM-DD
+    db.get('SELECT id FROM attendance WHERE uid = ? AND DATE(timestamp) = DATE(?)', [uid, dateOnly], (err, existing) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (existing) {
+        // Already recorded today, ignore duplicate
+        return res.json({ success: true, message: 'Already recorded today', student: studentName, timestamp });
       }
-    );
+
+      db.run(
+        `INSERT INTO attendance (student_id, device_mac, uid, student_name, timestamp, email_sent)
+         VALUES (?, ?, ?, ?, ?, 0)`,
+        [studentId, mac, uid, studentName, timestamp],
+        async function(err) {
+          if (err) return res.status(500).json({ error: 'Failed to record' });
+
+          const attendanceId = this.lastID;
+          if (student && student.active) {
+            const deviceInfo = { name: deviceName || 'Scanner', location: 'Unknown' };
+            const sent = await sendAttendanceEmail(student, deviceInfo, timestamp);
+            if (sent) db.run('UPDATE attendance SET email_sent = 1 WHERE id = ?', [attendanceId]);
+          }
+
+          res.json({ success: true, student: studentName, timestamp });
+        }
+      );
+    });
   });
 }
 
