@@ -168,7 +168,14 @@ void syncData() {
 
 // ================= CONFIG PORTAL =================
 void handleRoot() {
-  server.send(200, "text/html", "<h2>Attendly Setup</h2>");
+  String html = "<html><head><meta name='viewport' content='width=device-width, initial-scale=1'><style>body{font-family:sans-serif;padding:20px;}input{width:100%;padding:10px;margin:5px 0;}button{width:100%;padding:10px;background:#3498db;color:#fff;border:none;}</style></head><body>";
+  html += "<h2>Attendly Setup</h2><form action='/save' method='POST'>";
+  html += "WiFi SSID:<br><input type='text' name='ssid' value='" + configSSID + "'>";
+  html += "WiFi Pass:<br><input type='password' name='password' value=''>";
+  html += "Server URL:<br><input type='text' name='url' value='" + configUrl + "'>";
+  html += "Sync Delay (sec):<br><input type='number' name='delay' value='" + String(syncDelay) + "'>";
+  html += "<button type='submit'>Save & Restart</button></form></body></html>";
+  server.send(200, "text/html", html);
 }
 
 void handleSave() {
