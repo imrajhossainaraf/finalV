@@ -2,9 +2,9 @@
   "name": "finalV",
   "version": "1.0.0",
   "scripts": {
-    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\"",
+    "dev": "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix files\"",
     "dev:client": "npm run dev --prefix client",
-    "dev:server": "npm run dev --prefix server",
+    "dev:server": "npm run dev --prefix files",
     "build": "npm run build --prefix client"
   },
   "dependencies": {
