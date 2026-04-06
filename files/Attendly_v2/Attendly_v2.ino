@@ -278,14 +278,27 @@ void loop() {
   }
 
   // ===== RFID FAST SCAN =====
-  if (!isSyncing && rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+  static String lastUID = "";
+  static unsigned long lastScanTime = 0;
 
+  if (!isSyncing && rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
     String uid = "";
     for (byte i = 0; i < rfid.uid.size; i++) {
       if (rfid.uid.uidByte[i] < 0x10) uid += "0";
       uid += String(rfid.uid.uidByte[i], HEX);
     }
     uid.toUpperCase();
+
+    // High Speed Optimization: 
+    // Allow immediate scanning of different cards, but 3-second cooldown for the SAME card.
+    if (uid == lastUID && millis() - lastScanTime < 3000) {
+      rfid.PICC_HaltA();
+      rfid.PCD_StopCrypto1();
+      return; 
+    }
+
+    lastUID = uid;
+    lastScanTime = millis();
 
     DateTime now = rtc.now();
     String isoTime = getISO8601(now);
@@ -294,7 +307,7 @@ void loop() {
     if (file) {
       file.println(uid + "," + isoTime);
       file.close();
-      beep(60);  // ⚡ instant feedback
+      beep(60); // Quick feedback
     } else {
       beepError();
     }
