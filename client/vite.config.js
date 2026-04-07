@@ -12,6 +12,9 @@ export default defineConfig({
       '/api': {
         target: 'https://finalv.onrender.com',
         changeOrigin: true,
+        secure: false,
+        timeout: 120000,       // 2 min – covers Render cold starts
+        proxyTimeout: 120000,  // 2 min – covers email batch sending
       }
     },
   },

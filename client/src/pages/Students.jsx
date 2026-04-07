@@ -5,7 +5,7 @@ import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User
 import { toast } from 'react-toastify';
 
 export default function Students() {
-  const { students, refetch } = useData();
+  const { students, refetch, sendManualNotice } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modal State
@@ -239,41 +239,58 @@ export default function Students() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleEdit(student)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
-                        style={
-                          isUnknown
-                            ? {
-                                background: 'var(--attendly-glow-error)',
-                                color: 'var(--attendly-accent-error)',
-                                border: '1px solid rgba(239,68,68,0.25)',
-                              }
-                            : {
-                                background: 'transparent',
-                                color: 'var(--attendly-text-muted)',
-                                border: '1px solid var(--attendly-border)',
-                              }
-                        }
-                        onMouseEnter={(e) => {
-                          if (!isUnknown) {
-                            e.currentTarget.style.borderColor = 'var(--attendly-border-focus)';
-                            e.currentTarget.style.color = '#818cf8';
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEdit(student)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+                          style={
+                            isUnknown
+                              ? {
+                                  background: 'var(--attendly-glow-error)',
+                                  color: 'var(--attendly-accent-error)',
+                                  border: '1px solid rgba(239,68,68,0.25)',
+                                }
+                              : {
+                                  background: 'transparent',
+                                  color: 'var(--attendly-text-muted)',
+                                  border: '1px solid var(--attendly-border)',
+                                }
                           }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isUnknown) {
-                            e.currentTarget.style.borderColor = 'var(--attendly-border)';
-                            e.currentTarget.style.color = 'var(--attendly-text-muted)';
-                          }
-                        }}
-                      >
-                        {isUnknown ? (
-                          <><ShieldAlert size={12} /> Map User</>
-                        ) : (
-                          <><Edit3 size={12} /> Edit</>
+                          onMouseEnter={(e) => {
+                            if (!isUnknown) {
+                              e.currentTarget.style.borderColor = 'var(--attendly-border-focus)';
+                              e.currentTarget.style.color = '#818cf8';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isUnknown) {
+                              e.currentTarget.style.borderColor = 'var(--attendly-border)';
+                              e.currentTarget.style.color = 'var(--attendly-text-muted)';
+                            }
+                          }}
+                        >
+                          {isUnknown ? (
+                            <><ShieldAlert size={12} /> Map User</>
+                          ) : (
+                            <><Edit3 size={12} /> Edit</>
+                          )}
+                        </button>
+
+                        {!isUnknown && (
+                          <button
+                            onClick={() => sendManualNotice(student, "This is a manual check-in from Attendly Management.")}
+                            className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                            title="Send Manual Email"
+                            style={{
+                              background: 'rgba(6,182,212,0.1)',
+                              color: '#22d3ee',
+                              border: '1px solid rgba(6,182,212,0.2)',
+                            }}
+                          >
+                            <Mail size={14} />
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 );

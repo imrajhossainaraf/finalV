@@ -1,11 +1,10 @@
 import { Bell, Search, Menu, Calendar, Mail, Loader2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useState } from 'react';
 
 export default function Navbar() {
-  const { loading, lastFetch, forcedDate, setForcedDate } = useData();
+  const { loading, lastFetch, forcedDate, setForcedDate, triggerBulkNotice } = useData();
   const [sending, setSending] = useState(false);
 
   const handleNotifyAll = async () => {
@@ -15,21 +14,21 @@ export default function Navbar() {
     }
     
     setSending(true);
-    const notificationPromise = axios.post('/api/notify-all', { date: notifyDate });
-    
-    toast.promise(notificationPromise, {
-      pending: 'Sending emails to all students...',
-      success: 'Notices sent successfully!',
-      error: 'Failed to send notices.'
-    });
+    toast.info('Sending emails — this may take up to a minute if the server is waking up...', { autoClose: 5000 });
 
     try {
-      const response = await notificationPromise;
-      if(response.data.stats) {
-         toast.info(`Sent: ${response.data.stats.sent}, Failed: ${response.data.stats.failed}`);
+      const data = await triggerBulkNotice(notifyDate);
+      
+      if (data.stats) {
+        const { sent, failed, total } = data.stats;
+        toast.success(`✅ Notices sent! ${sent}/${total} delivered${failed > 0 ? `, ${failed} failed` : ''}`);
+      } else {
+        toast.success('Notices sent successfully!');
       }
     } catch (e) {
-      console.error(e);
+      console.error('Notify-all error:', e);
+      const msg = e.response?.data?.error || e.message || 'Unknown error';
+      toast.error(`Failed to send notices: ${msg}`);
     } finally {
       setSending(false);
     }

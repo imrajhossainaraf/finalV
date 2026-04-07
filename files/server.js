@@ -82,7 +82,7 @@ function initDatabase() {
 // ============================================================
 // CONFIGURE YOUR EMAIL HERE:
 const EMAIL_CONFIG = {
-  enabled: true,  // Set to false to disable email sending
+  enabled: false,  // DISABLED: Using local-email-service via UI instead
   service: 'gmail',  // 'gmail', 'outlook', 'yahoo', etc.
   user: 'imrajhossainaraf12@gmail.com',  // Your email address
   password: 'gepw jorg gare hlgo',  // Gmail App Password (not regular password)
@@ -419,6 +419,21 @@ app.get('/api/attendance', (req, res) => {
     }
     res.json({ attendance: rows });
   });
+});
+
+// ── ATTENDANCE STATUS UPDATE API ──
+app.patch('/api/attendance/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { email_sent } = req.body;
+
+  db.run(
+    'UPDATE attendance SET email_sent = ? WHERE id = ?',
+    [email_sent, id],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, message: 'Status updated' });
+    }
+  );
 });
 
 // ── STATISTICS API ──

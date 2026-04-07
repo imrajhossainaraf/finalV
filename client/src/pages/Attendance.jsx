@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Search, Download, Filter, CalendarCheck } from 'lucide-react';
+import { Search, Download, Filter, CalendarCheck, Mail } from 'lucide-react';
 
 export default function Attendance() {
-  const { attendance } = useData();
+  const { attendance, triggerLocalEmail } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
 
@@ -124,6 +124,7 @@ export default function Attendance() {
                 <th>Device</th>
                 <th>Timestamp</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -196,6 +197,20 @@ export default function Attendance() {
                         {record.email_sent ? 'Notified' : 'Pending'}
                       </span>
                     </div>
+                  </td>
+                  <td>
+                    <button
+                      onClick={() => triggerLocalEmail(record)}
+                      className="p-2 rounded-lg transition-all duration-200 hover:scale-110"
+                      title="Send Individual Email"
+                      style={{
+                        background: 'rgba(99,102,241,0.1)',
+                        color: '#818cf8',
+                        border: '1px solid rgba(99,102,241,0.2)',
+                      }}
+                    >
+                      <Mail size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
