@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import AIAssistant from './AIAssistant';
 
 export default function Layout() {
   return (
@@ -25,6 +26,7 @@ export default function Layout() {
             <Outlet />
           </div>
         </main>
+        <AIAssistant />
       </div>
     </div>
   );
