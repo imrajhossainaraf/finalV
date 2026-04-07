@@ -21,12 +21,12 @@ export default function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am Attendly AI. How can I help you manage your attendance records today?' }
+    { role: 'assistant', content: 'Hello! I am Attendly AI. Try asking me to "Send a bulk notice" or "Email [Student Name]".' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [provider, setProvider] = useState(() => localStorage.getItem('ai_provider') || 'gemini');
+  const [provider, setProvider] = useState(() => localStorage.getItem('ai_provider') || 'local');
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('ai_api_key') || '');
   
   const messagesEndRef = useRef(null);
@@ -79,7 +79,7 @@ export default function AIAssistant() {
     setIsTyping(true);
 
     try {
-      const response = await axios.post('http://localhost:5002/api/chat', {
+      const response = await axios.post('http://localhost:5005/api/chat', {
         message: text,
         context: { students, attendance },
         config: { provider, apiKey }
@@ -97,7 +97,7 @@ export default function AIAssistant() {
       console.error('AI Error:', err);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `Error: ${err.response?.data?.error || err.message}. Please check your API key or if the AI service is running on port 5002.` 
+        content: `Error: ${err.response?.data?.error || err.message}. Please check your API key or if the AI service is running on port 5005.` 
       }]);
     } finally {
       setIsTyping(false);
@@ -212,8 +212,8 @@ export default function AIAssistant() {
                     onChange={(e) => setProvider(e.target.value)}
                     className="w-full bg-[var(--attendly-bg-elevated)] border border-[var(--attendly-border)] rounded-xl px-4 py-2 text-sm"
                   >
-                    <option value="gemini">Google Gemini (Flash)</option>
-                    <option value="openrouter">OpenRouter (Free Models)</option>
+                    <option value="local">Offline Mode (No API Needed)</option>
+                    <option value="openai">OpenAI (GPT-4o Mini)</option>
                   </select>
                 </div>
 
@@ -227,7 +227,7 @@ export default function AIAssistant() {
                     className="w-full bg-[var(--attendly-bg-elevated)] border border-[var(--attendly-border)] rounded-xl px-4 py-2 text-sm"
                   />
                   <p className="text-[10px] text-muted mt-2 leading-relaxed">
-                    Keys are stored locally in your browser and never sent anywhere except our private AI service on port 5002.
+                    Keys are stored locally in your browser and never sent anywhere except our private AI service on port 5005.
                   </p>
                 </div>
               </div>
@@ -273,6 +273,22 @@ export default function AIAssistant() {
               </div>
             )}
             <div ref={messagesEndRef} />
+          </div>
+
+          {/* Quick Command Suggestions */}
+          <div className="px-4 pb-3 flex gap-2 overflow-x-auto custom-scrollbar" style={{ scrollbarWidth: 'none' }}>
+            <button 
+              onClick={() => handleSend('Send a bulk notice')}
+              className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-[var(--attendly-bg-elevated)] border border-[var(--attendly-border)] text-muted hover:text-white hover:border-indigo-500 hover:bg-indigo-500/10 transition-all"
+            >
+              🚀 Bulk Notice
+            </button>
+            <button 
+              onClick={() => handleSend('Email Student')}
+              className="shrink-0 text-[11px] px-3 py-1.5 rounded-full bg-[var(--attendly-bg-elevated)] border border-[var(--attendly-border)] text-muted hover:text-white hover:border-indigo-500 hover:bg-indigo-500/10 transition-all"
+            >
+              ✉️ Email specific student
+            </button>
           </div>
 
           {/* Input Area */}
