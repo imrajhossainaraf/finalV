@@ -436,6 +436,15 @@ app.patch('/api/attendance/:id/status', (req, res) => {
   );
 });
 
+// ── DEMO RESET API ──
+app.delete('/api/attendance', (req, res) => {
+  db.run('DELETE FROM attendance', function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true, message: 'All attendance records deleted for demo.' });
+  });
+});
+
+
 // ── STATISTICS API ──
 app.get('/api/stats', (req, res) => {
   const stats = {};

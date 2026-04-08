@@ -11,14 +11,20 @@ import { toast } from "react-toastify";
 const DataContext = createContext();
 
 export function DataProvider({ children }) {
-  const [stats, setStats] = useState(null);
-  const [attendance, setAttendance] = useState([]);
-  const [devices, setDevices] = useState([]);
-  const [students, setStudents] = useState([]);
+  const [stats, setStats] = useState(() => JSON.parse(localStorage.getItem('attendly_stats')) || null);
+  const [attendance, setAttendance] = useState(() => JSON.parse(localStorage.getItem('attendly_attendance')) || []);
+  const [devices, setDevices] = useState(() => JSON.parse(localStorage.getItem('attendly_devices')) || []);
+  const [students, setStudents] = useState(() => JSON.parse(localStorage.getItem('attendly_students')) || []);
   const [loading, setLoading] = useState(true);
   const [lastFetch, setLastFetch] = useState(null);
-  const [forcedDate, setForcedDate] = useState("");
+  const [forcedDate, setForcedDateState] = useState(() => sessionStorage.getItem('attendly_forcedDate') || "");
   const [triggeredIds, setTriggeredIds] = useState(new Set());
+
+  // Wrapper for setForcedDate to also update sessionStorage so it persists page reloads
+  const setForcedDate = useCallback((date) => {
+    setForcedDateState(date);
+    sessionStorage.setItem('attendly_forcedDate', date);
+  }, []);
 
   const triggerLocalEmail = useCallback(async (record) => {
     try {
@@ -120,21 +126,70 @@ export function DataProvider({ children }) {
     async (silent = true) => {
       try {
         if (!silent) setLoading(true);
-        const testDateQuery = forcedDate ? `?date=${forcedDate}` : "";
 
-        const [statsRes, attendanceRes, devicesRes, studentsRes] =
+        const [devicesRes, studentsRes, allScansRes] =
           await Promise.all([
-            axios.get(`/api/stats${testDateQuery}`),
-            axios.get(`/api/attendance${testDateQuery}`),
             axios.get("/api/devices"),
             axios.get("/api/students"),
+            axios.get("/api/attendance"), // Fetch all scans un-filtered to compute chart data correctly
           ]);
 
-        setStats(statsRes.data);
-        setAttendance(attendanceRes.data.attendance || []);
-        setDevices(devicesRes.data.devices || []);
-        setStudents(studentsRes.data.students || []);
+        const rawDevices = devicesRes.data.devices || [];
+        const rawStudents = studentsRes.data.students || [];
+        let allScans = allScansRes.data.attendance || [];
+
+        // 1. Fix broken ESP32 timestamps by using the accurate SQLite created_at column
+        allScans = allScans.map(scan => {
+          if (scan.created_at) {
+            // Convert 'YYYY-MM-DD HH:MM:SS' to ISO string format 'YYYY-MM-DDTHH:MM:SSZ'
+            // This ensures all charts and UI components see the correct time.
+            scan.timestamp = scan.created_at.replace(' ', 'T') + 'Z'; 
+          }
+          return scan;
+        });
+
+        // Force sort dynamically just in case database order was based on the broken timestamps
+        allScans.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // 2. Identify target date for stats calculation (either forcedDate or today's true date)
+        const targetDate = forcedDate || new Date().toISOString().split('T')[0];
+
+        // 3. Calculate accurate stats based on the corrected timestamps
+        const dailyAttendanceMap = {};
+        allScans.forEach(scan => {
+          const scanDate = scan.timestamp.split('T')[0];
+          if (scanDate === targetDate) {
+            const key = scan.student_id || scan.uid;
+            if (!dailyAttendanceMap[key]) {
+              dailyAttendanceMap[key] = scan;
+            }
+          }
+        });
+
+        const computedStats = {
+          totalStudents: rawStudents.filter(s => s.active === 1).length,
+          totalDevices: rawDevices.length,
+          todayAttendance: Object.keys(dailyAttendanceMap).length, // Unique records today
+          totalAttendance: allScans.length // All-time scans
+        };
+
+        // 4. If a forcedDate is selected, only pass that day's data down so UI updates to that day
+        let displayScans = allScans;
+        if (forcedDate) {
+           displayScans = allScans.filter(scan => scan.timestamp.split('T')[0] === forcedDate);
+        }
+
+        setStats(computedStats);
+        setAttendance(displayScans);
+        setDevices(rawDevices);
+        setStudents(rawStudents);
         setLastFetch(new Date());
+
+        // Cache the data locally so it persists when the page is refreshed or goes offline
+        localStorage.setItem('attendly_stats', JSON.stringify(computedStats));
+        localStorage.setItem('attendly_attendance', JSON.stringify(displayScans));
+        localStorage.setItem('attendly_devices', JSON.stringify(rawDevices));
+        localStorage.setItem('attendly_students', JSON.stringify(rawStudents));
       } catch (err) {
         console.error("Error fetching data:", err);
         if (!silent) {
@@ -146,6 +201,18 @@ export function DataProvider({ children }) {
     },
     [forcedDate],
   );
+
+  const resetDemoData = useCallback(async () => {
+    try {
+      await axios.delete('/api/attendance');
+      toast.success('All scans deleted for demo!', { autoClose: 3000 });
+      // Wait a moment then fetch fresh data
+      setTimeout(() => fetchAllData(false), 500);
+    } catch (err) {
+      console.error('Reset error:', err.message);
+      toast.error('Failed to reset data! Make sure you updated the render server.');
+    }
+  }, [fetchAllData]);
 
   useEffect(() => {
     // Initial fetch, not silent
@@ -190,6 +257,7 @@ export function DataProvider({ children }) {
         triggerLocalEmail,
         sendManualNotice,
         triggerBulkNotice,
+        resetDemoData,
         forcedDate,
         setForcedDate,
       }}

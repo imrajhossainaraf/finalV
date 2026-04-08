@@ -1,10 +1,10 @@
-import { Bell, Search, Menu, Calendar, Mail, Loader2 } from 'lucide-react';
+import { Bell, Search, Menu, Calendar, Mail, Loader2, Trash2 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { toast } from 'react-toastify';
 import { useState } from 'react';
 
 export default function Navbar() {
-  const { loading, lastFetch, forcedDate, setForcedDate, triggerBulkNotice } = useData();
+  const { loading, lastFetch, forcedDate, setForcedDate, triggerBulkNotice, resetDemoData } = useData();
   const [sending, setSending] = useState(false);
 
   const handleNotifyAll = async () => {
@@ -114,6 +114,24 @@ export default function Navbar() {
         >
           {sending ? <Loader2 size={14} className="animate-spin" /> : <Mail size={14} />}
           <span>Notify All</span>
+        </button>
+
+        {/* Reset Demo Button */}
+        <button 
+          onClick={async () => {
+            if (confirm("Are you sure you want to delete ALL attendance scans? This is meant for starting a clean demo. Students and Devices will remain intact.")) {
+              await resetDemoData();
+            }
+          }}
+          className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 hover:opacity-80"
+          style={{
+            background: 'var(--attendly-accent-error)',
+            color: 'white',
+            boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <Trash2 size={14} />
+          <span>Reset Demo</span>
         </button>
 
         {/* Sync indicator */}
