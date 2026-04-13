@@ -14,9 +14,14 @@ export default function Students() {
     uid: '',
     name: '',
     email: '',
+    parent_email: '',
+    teacher_email: '',
     class: '',
-    roll_number: ''
+    roll_number: '',
+    notes: ''
   });
+  const [isCardOpen, setIsCardOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter out students by name or UID
@@ -30,10 +35,18 @@ export default function Students() {
       uid: student.uid || '',
       name: student.name.startsWith('Unknown-') ? '' : student.name,
       email: student.email.startsWith('unknown-') ? '' : student.email,
+      parent_email: student.parent_email || '',
+      teacher_email: student.teacher_email || '',
       class: student.class || '',
-      roll_number: student.roll_number || ''
+      roll_number: student.roll_number || '',
+      notes: student.notes || ''
     });
     setIsModalOpen(true);
+  };
+
+  const handleViewCard = (student) => {
+    setSelectedStudent(student);
+    setIsCardOpen(true);
   };
 
   const handleNew = () => {
@@ -41,8 +54,11 @@ export default function Students() {
       uid: '',
       name: '',
       email: '',
+      parent_email: '',
+      teacher_email: '',
       class: '',
-      roll_number: ''
+      roll_number: '',
+      notes: ''
     });
     setIsModalOpen(true);
   };
@@ -185,10 +201,13 @@ export default function Students() {
                         </div>
                         <div>
                           <div
-                            className="font-semibold text-sm"
+                            className="font-semibold text-sm flex items-center gap-2"
                             style={{ color: isUnknown ? 'var(--attendly-accent-error)' : 'var(--attendly-text-primary)' }}
                           >
                             {isUnknown ? 'Unregistered Card' : student.name}
+                            {student.notes && !isUnknown && (
+                              <div title="Has Notes" className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                            )}
                           </div>
                           <div className="text-xs" style={{ color: 'var(--attendly-text-muted)' }}>
                             {isUnknown ? 'Needs mapping' : student.email}
@@ -240,6 +259,18 @@ export default function Students() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewCard(student)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
+                          style={{
+                            background: 'var(--attendly-glow-primary)',
+                            color: '#818cf8',
+                            border: '1px solid rgba(129, 140, 248, 0.25)',
+                          }}
+                        >
+                          View Card
+                        </button>
+
                         <button
                           onClick={() => handleEdit(student)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200"
@@ -396,23 +427,64 @@ export default function Students() {
                 />
               </div>
 
-              {/* Email */}
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--attendly-text-muted)' }}>
-                  <Mail size={12} /> Email Address *
-                </label>
-                <input 
-                  type="email" 
-                  placeholder="Email for notifications" 
-                  className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
-                  style={{
-                    background: 'var(--attendly-bg-elevated)',
-                    border: '1px solid var(--attendly-border)',
-                    color: 'var(--attendly-text-primary)',
-                  }}
-                  value={formData.email}
-                  onChange={e => setFormData({...formData, email: e.target.value})}
-                />
+              {/* Emails Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Student Email */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--attendly-text-muted)' }}>
+                    <Mail size={12} /> Student Email *
+                  </label>
+                  <input 
+                    type="email" 
+                    placeholder="Student primary email" 
+                    className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
+                    style={{
+                      background: 'var(--attendly-bg-elevated)',
+                      border: '1px solid var(--attendly-border)',
+                      color: 'var(--attendly-text-primary)',
+                    }}
+                    value={formData.email}
+                    onChange={e => setFormData({...formData, email: e.target.value})}
+                  />
+                </div>
+
+                {/* Parent Email */}
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--attendly-text-muted)' }}>
+                    <Mail size={12} /> Parent Email
+                  </label>
+                  <input 
+                    type="email" 
+                    placeholder="Inquiry reply target" 
+                    className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
+                    style={{
+                      background: 'var(--attendly-bg-elevated)',
+                      border: '1px solid var(--attendly-border)',
+                      color: 'var(--attendly-text-primary)',
+                    }}
+                    value={formData.parent_email}
+                    onChange={e => setFormData({...formData, parent_email: e.target.value})}
+                  />
+                </div>
+
+                {/* Teacher Email */}
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--attendly-text-muted)' }}>
+                    <Mail size={12} /> Teacher Email
+                  </label>
+                  <input 
+                    type="email" 
+                    placeholder="Assigned teacher for updates" 
+                    className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
+                    style={{
+                      background: 'var(--attendly-bg-elevated)',
+                      border: '1px solid var(--attendly-border)',
+                      color: 'var(--attendly-text-primary)',
+                    }}
+                    value={formData.teacher_email}
+                    onChange={e => setFormData({...formData, teacher_email: e.target.value})}
+                  />
+                </div>
               </div>
 
               {/* Class & Roll */}
@@ -453,6 +525,24 @@ export default function Students() {
                 </div>
               </div>
 
+              {/* Notes */}
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--attendly-text-muted)' }}>
+                  Notes & Remarks
+                </label>
+                <textarea 
+                  placeholder="e.g. Fought today, has to pay dues, etc." 
+                  className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none min-h-[80px] resize-none"
+                  style={{
+                    background: 'var(--attendly-bg-elevated)',
+                    border: '1px solid var(--attendly-border)',
+                    color: 'var(--attendly-text-primary)',
+                  }}
+                  value={formData.notes}
+                  onChange={e => setFormData({...formData, notes: e.target.value})}
+                />
+              </div>
+
               {/* Actions */}
               <div className="flex gap-3 pt-4">
                 <button 
@@ -490,6 +580,80 @@ export default function Students() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Personal Card Modal */}
+      {isCardOpen && selectedStudent && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          onClick={() => setIsCardOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[2.5rem] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-scale-in"
+            style={{
+              background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Card Background Glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-[60px] rounded-full -mr-16 -mt-16" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/20 blur-[60px] rounded-full -ml-16 -mb-16" />
+
+            <div className="p-8 relative">
+              <div className="flex justify-between items-start mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-2xl font-bold text-indigo-400 border border-indigo-500/20">
+                  {selectedStudent.name.charAt(0)}
+                </div>
+                <button onClick={() => setIsCardOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-1 mb-6">
+                <h2 className="text-2xl font-bold text-white tracking-tight">{selectedStudent.name}</h2>
+                <p className="text-indigo-400 font-medium text-sm">{selectedStudent.class} • Roll {selectedStudent.roll_number}</p>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">Contact Email</p>
+                  <p className="text-slate-300 text-sm truncate">{selectedStudent.email}</p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">Behavioral Notes</p>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-slate-300 italic leading-relaxed">
+                      {selectedStudent.notes || "No recent remarks recorded."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex items-center justify-between">
+                <div className="flex -space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] text-slate-400">ID</div>
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 border-2 border-slate-900 flex items-center justify-center text-[10px] text-indigo-400 font-mono">
+                    {selectedStudent.uid.slice(-2)}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">Attendly Verified</p>
+              </div>
+
+              {/* Quick Edit Action */}
+              <button 
+                onClick={() => {
+                  setIsCardOpen(false);
+                  handleEdit(selectedStudent);
+                }}
+                className="w-full mt-6 py-4 rounded-2xl bg-indigo-500 text-white font-bold text-sm shadow-[0_10px_30px_rgba(99,102,241,0.3)] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Edit3 size={16} />
+                Edit Remarks & Details
+              </button>
+            </div>
           </div>
         </div>
       )}

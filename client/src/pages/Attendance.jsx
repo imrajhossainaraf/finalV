@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Search, Download, Filter, CalendarCheck, Mail } from 'lucide-react';
+import { Search, Download, Filter, CalendarCheck, Mail, X, Edit3 } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 export default function Attendance() {
-  const { attendance, triggerLocalEmail } = useData();
+  const { attendance, students, triggerLocalEmail } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [isCardOpen, setIsCardOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   // Filtering
   const filteredAttendance = attendance?.filter((record) => {
@@ -18,6 +21,17 @@ export default function Attendance() {
 
     return matchesSearch && matchesDate;
   }) || [];
+
+  const handleViewCard = (record) => {
+    // Find the full student object from the students list
+    const student = students?.find(s => s.uid === record.uid);
+    if (student) {
+      setSelectedStudent(student);
+      setIsCardOpen(true);
+    } else {
+      toast.info('Student profile not found for this card.');
+    }
+  };
 
   // CSV Export
   const exportToCSV = () => {
@@ -142,14 +156,22 @@ export default function Attendance() {
                         {record.student_name ? record.student_name.charAt(0) : '?'}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold" style={{ color: 'var(--attendly-text-primary)' }}>
+                      <div 
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleViewCard(record)}
+                      >
+                        <div className="text-sm font-semibold flex items-center gap-1.5" style={{ color: 'var(--attendly-text-primary)' }}>
                           {record.student_name || 'Unknown'}
+                          {students?.find(s => s.uid === record.uid)?.notes && (
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          )}
                         </div>
                         <div className="text-xs" style={{ color: 'var(--attendly-text-muted)' }}>
                           {record.class || 'No class'}
                         </div>
                       </div>
                     </div>
+                  </div>
                   </td>
                   <td>
                     <span
@@ -231,6 +253,68 @@ export default function Attendance() {
           </table>
         </div>
       </div>
+
+      {/* Personal Card Modal (Same as Students page) */}
+      {isCardOpen && selectedStudent && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          onClick={() => setIsCardOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[2.5rem] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-scale-in"
+            style={{
+              background: 'linear-gradient(145deg, #1e293b 0%, #0f172a 100%)',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 blur-[60px] rounded-full -mr-16 -mt-16" />
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/20 blur-[60px] rounded-full -ml-16 -mb-16" />
+
+            <div className="p-8 relative">
+              <div className="flex justify-between items-start mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-2xl font-bold text-indigo-400 border border-indigo-500/20">
+                  {selectedStudent.name.charAt(0)}
+                </div>
+                <button onClick={() => setIsCardOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="space-y-1 mb-6">
+                <h2 className="text-2xl font-bold text-white tracking-tight">{selectedStudent.name}</h2>
+                <p className="text-indigo-400 font-medium text-sm">{selectedStudent.class} • Roll {selectedStudent.roll_number}</p>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">Contact Email</p>
+                  <p className="text-slate-300 text-sm truncate">{selectedStudent.email}</p>
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">Behavioral Notes</p>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                    <p className="text-sm text-slate-300 italic leading-relaxed">
+                      {selectedStudent.notes || "No recent remarks recorded."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex items-center justify-between">
+                <div className="flex -space-x-2">
+                  <div className="w-8 h-8 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[10px] text-slate-400">ID</div>
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/20 border-2 border-slate-900 flex items-center justify-center text-[10px] text-indigo-400 font-mono">
+                    {selectedStudent.uid.slice(-2)}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">Attendly Verified</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

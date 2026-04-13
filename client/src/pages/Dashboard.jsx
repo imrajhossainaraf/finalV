@@ -1,7 +1,9 @@
 import { useData } from '../context/DataContext';
 import StatCard from '../components/StatCard';
-import { Users, Cpu, CalendarCheck, ClipboardCheck, Clock, ArrowUpRight } from 'lucide-react';
+import { Users, Cpu, CalendarCheck, ClipboardCheck, Clock, ArrowUpRight, PlayCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 function CustomTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
@@ -25,7 +27,23 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function Dashboard() {
-  const { stats, attendance, devices } = useData();
+  const { stats, attendance, devices, refetch } = useData();
+
+  const handleSimulateScan = async () => {
+    try {
+      // Mock scan for 'John Doe' (A1B2C3D4) - Hits Render to test full pipeline
+      await axios.post('https://finalv.onrender.com/api/attendance', {
+        mac: 'SIMULATOR-001',
+        deviceName: 'Demo Simulator',
+        uid: 'A1B2C3D4',
+        timestamp: new Date().toISOString()
+      });
+      toast.success('Simulated scan for John Doe!');
+      refetch();
+    } catch (err) {
+      toast.error('Simulation failed');
+    }
+  };
 
   if (!stats) return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -62,25 +80,42 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="animate-fade-in-up">
-        <div className="flex items-center gap-3 mb-1">
-          <h1
-            className="text-3xl font-extrabold tracking-tight"
-            style={{
-              background: 'linear-gradient(135deg, var(--attendly-text-primary) 0%, #818cf8 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}
-          >
-            Overview
-          </h1>
-          <div className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" style={{ background: 'var(--attendly-glow-primary)', color: '#818cf8' }}>
-            Live
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in-up">
+        <div>
+          <div className="flex items-center gap-3 mb-1">
+            <h1
+              className="text-3xl font-extrabold tracking-tight"
+              style={{
+                background: 'linear-gradient(135deg, var(--attendly-text-primary) 0%, #818cf8 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Overview
+            </h1>
+            <div className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest" style={{ background: 'var(--attendly-glow-primary)', color: '#818cf8' }}>
+              Live
+            </div>
           </div>
+          <p className="text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
+            Real-time attendance metrics from your ESP32 devices.
+          </p>
         </div>
-        <p className="text-sm" style={{ color: 'var(--attendly-text-muted)' }}>
-          Real-time attendance metrics from your ESP32 devices.
-        </p>
+
+        <button
+          onClick={handleSimulateScan}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300"
+          style={{
+            background: 'rgba(129, 140, 248, 0.1)',
+            color: '#818cf8',
+            border: '1px solid rgba(129, 140, 248, 0.2)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(129, 140, 248, 0.2)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(129, 140, 248, 0.1)'; }}
+        >
+          <PlayCircle size={18} />
+          Simulate Machine Scan
+        </button>
       </div>
 
       {/* Stats Grid */}

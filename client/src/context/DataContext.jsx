@@ -96,12 +96,15 @@ export function DataProvider({ children }) {
 
       // 2. Prepare student status list (Active only)
       const bulkList = students
-        .filter(s => s.active === 1 && s.email && !s.email.includes('pending.com'))
+        .filter(s => s.active === 1 || s.active === true)
+        .filter(s => s.email && !s.email.includes('pending.com'))
         .map(s => ({
           name: s.name,
           email: s.email,
+          parent_email: s.parent_email,
+          teacher_email: s.teacher_email,
           class: s.class,
-          hasAttended: !!attendanceMap[s.id]
+          hasAttended: !!attendanceMap[s._id || s.id]
         }));
 
       if (bulkList.length === 0) {
@@ -138,12 +141,15 @@ export function DataProvider({ children }) {
         const rawStudents = studentsRes.data.students || [];
         let allScans = allScansRes.data.attendance || [];
 
-        // 1. Fix broken ESP32 timestamps by using the accurate SQLite created_at column
+        // 1. Handle timestamps from both SQLite (Legacy) and MongoDB (New)
         allScans = allScans.map(scan => {
-          if (scan.created_at) {
-            // Convert 'YYYY-MM-DD HH:MM:SS' to ISO string format 'YYYY-MM-DDTHH:MM:SSZ'
-            // This ensures all charts and UI components see the correct time.
-            scan.timestamp = scan.created_at.replace(' ', 'T') + 'Z'; 
+          const createdAt = scan.created_at;
+          if (createdAt && typeof createdAt === 'string' && createdAt.includes(' ')) {
+            // Legacy SQLite format: 'YYYY-MM-DD HH:MM:SS'
+            scan.timestamp = createdAt.replace(' ', 'T') + 'Z'; 
+          } else if (createdAt) {
+            // MongoDB / ISO format (handles both ISO string and Date object)
+            scan.timestamp = new Date(createdAt).toISOString();
           }
           return scan;
         });
@@ -167,7 +173,7 @@ export function DataProvider({ children }) {
         });
 
         const computedStats = {
-          totalStudents: rawStudents.filter(s => s.active === 1).length,
+          totalStudents: rawStudents.filter(s => s.active === 1 || s.active === true).length,
           totalDevices: rawDevices.length,
           todayAttendance: Object.keys(dailyAttendanceMap).length, // Unique records today
           totalAttendance: allScans.length // All-time scans
