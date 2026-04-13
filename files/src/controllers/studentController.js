@@ -1,4 +1,5 @@
 const Student = require('../models/Student');
+const Attendance = require('../models/Attendance');
 const { sendNoteNotification } = require('../services/emailService');
 
 /**
@@ -49,6 +50,26 @@ exports.getStudentByUid = async (req, res) => {
     const student = await Student.findOne({ uid: req.params.uid });
     if (!student) return res.status(404).json({ error: 'Student not found' });
     res.json({ student });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * DELETE single student by UID and clear their logs
+ */
+exports.deleteStudent = async (req, res) => {
+  try {
+    const student = await Student.findOne({ uid: req.params.uid });
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Delete all attendance records tied to this student
+    await Attendance.deleteMany({ student_id: student._id });
+
+    // Delete the student profile
+    await Student.findByIdAndDelete(student._id);
+
+    res.json({ success: true, message: 'Student and past logs deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

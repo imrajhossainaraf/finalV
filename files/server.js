@@ -32,6 +32,21 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 // ROUTES
 app.use('/api', apiRoutes);
 
+// Root Route: Serve React App
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+// Health Check for Render/Monitoring
+app.get('/status', (req, res) => {
+  res.json({ service: 'Attendly Backend', status: 'online', version: '2.5-MVC' });
+});
+
+// Catch-all for React Router (must be last)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 // Database & Background Services
 async function run() {
   await connectDB();
@@ -57,7 +72,8 @@ async function run() {
   }
 
   // Start the background sync worker (Cloud -> Local)
-  startSyncWorker();
+  // Disabled because we are now connected directly to Atlas
+  // startSyncWorker();
 
   // Start Server
   app.listen(PORT, '0.0.0.0', () => {

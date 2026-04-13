@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useData } from '../context/DataContext';
-import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User } from 'lucide-react';
+import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function Students() {
@@ -23,6 +23,11 @@ export default function Students() {
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Delete Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter out students by name or UID
   const filteredStudents = students?.filter((s) => 
@@ -80,6 +85,27 @@ export default function Students() {
       toast.error(err.response?.data?.error || 'Failed to save student.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const confirmDelete = (student) => {
+    setStudentToDelete(student);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+    setIsDeleting(true);
+    try {
+      await axios.delete('/api/students/' + studentToDelete.uid);
+      toast.success('Student and their past logs deleted successfully!');
+      setIsDeleteModalOpen(false);
+      setStudentToDelete(null);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to delete student.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -308,18 +334,33 @@ export default function Students() {
                         </button>
 
                         {!isUnknown && (
-                          <button
-                            onClick={() => sendManualNotice(student, "This is a manual check-in from Attendly Management.")}
-                            className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
-                            title="Send Manual Email"
-                            style={{
-                              background: 'rgba(6,182,212,0.1)',
-                              color: '#22d3ee',
-                              border: '1px solid rgba(6,182,212,0.2)',
-                            }}
-                          >
-                            <Mail size={14} />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => sendManualNotice(student, "This is a manual check-in from Attendly Management.")}
+                              className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                              title="Send Manual Email"
+                              style={{
+                                background: 'rgba(6,182,212,0.1)',
+                                color: '#22d3ee',
+                                border: '1px solid rgba(6,182,212,0.2)',
+                              }}
+                            >
+                              <Mail size={14} />
+                            </button>
+
+                            <button
+                              onClick={() => confirmDelete(student)}
+                              className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
+                              title="Delete Student"
+                              style={{
+                                background: 'rgba(239,68,68,0.1)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239,68,68,0.2)',
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -653,6 +694,49 @@ export default function Students() {
                 <Edit3 size={16} />
                 Edit Remarks & Details
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && studentToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsDeleteModalOpen(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-[2rem] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-scale-in bg-slate-900 border border-slate-700"
+          >
+            <div className="p-8 text-center pt-10 relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[60px] rounded-full -mr-16 -mt-16" />
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 mb-6 relative z-10">
+                <Trash2 size={28} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2 relative z-10">Delete Student?</h3>
+              <p className="text-slate-400 text-sm mb-8 relative z-10">
+                Are you sure you want to permanently delete <strong className="text-white">{studentToDelete.name}</strong>? This will also wipe all their past attendance logs.
+              </p>
+              
+              <div className="flex gap-4 relative z-10">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="flex-1 flex justify-center items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 text-white bg-red-600 hover:bg-red-500 shadow-[0_4px_15px_rgba(220,38,38,0.3)] disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  ) : (
+                    "Yes, Delete"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

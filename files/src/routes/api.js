@@ -10,6 +10,7 @@ const systemController = require('../controllers/systemController');
 router.get('/students', studentController.getAllStudents);
 router.post('/students', studentController.upsertStudent);
 router.get('/students/:uid', studentController.getStudentByUid);
+router.delete('/students/:uid', studentController.deleteStudent);
 
 // ── ATTENDANCE ──
 router.post('/attendance', attendanceController.logScan);
