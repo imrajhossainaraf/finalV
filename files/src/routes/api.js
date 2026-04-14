@@ -11,6 +11,8 @@ router.get('/students', studentController.getAllStudents);
 router.post('/students', studentController.upsertStudent);
 router.get('/students/:uid', studentController.getStudentByUid);
 router.delete('/students/:uid', studentController.deleteStudent);
+router.get('/students/parent/lookup', studentController.getStudentsByParentEmail);
+router.get('/students/parent/report', studentController.getStudentDetailedReport);
 
 // ── ATTENDANCE ──
 router.post('/attendance', attendanceController.logScan);

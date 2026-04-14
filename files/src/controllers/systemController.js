@@ -27,9 +27,10 @@ exports.getStats = async (req, res) => {
     const endOfTarget = new Date(dateParam);
     endOfTarget.setHours(23, 59, 59, 999);
 
-    const todayAttendance = await Attendance.countDocuments({
+    const todayAttendanceRecords = await Attendance.distinct('uid', {
       timestamp: { $gte: startOfTarget, $lte: endOfTarget }
     });
+    const todayAttendance = todayAttendanceRecords.length;
 
     const totalAttendance = await Attendance.countDocuments();
 

@@ -143,13 +143,15 @@ export function DataProvider({ children }) {
 
         // 1. Handle timestamps from both SQLite (Legacy) and MongoDB (New)
         allScans = allScans.map(scan => {
-          const createdAt = scan.created_at;
-          if (createdAt && typeof createdAt === 'string' && createdAt.includes(' ')) {
+          // Prefer 'timestamp' if available (it's the actual scan time)
+          const rawTime = scan.timestamp || scan.created_at;
+          
+          if (rawTime && typeof rawTime === 'string' && rawTime.includes(' ')) {
             // Legacy SQLite format: 'YYYY-MM-DD HH:MM:SS'
-            scan.timestamp = createdAt.replace(' ', 'T') + 'Z'; 
-          } else if (createdAt) {
-            // MongoDB / ISO format (handles both ISO string and Date object)
-            scan.timestamp = new Date(createdAt).toISOString();
+            scan.timestamp = rawTime.replace(' ', 'T') + (rawTime.includes('Z') ? '' : 'Z'); 
+          } else if (rawTime) {
+            // MongoDB / ISO format
+            scan.timestamp = new Date(rawTime).toISOString();
           }
           return scan;
         });
@@ -165,8 +167,10 @@ export function DataProvider({ children }) {
         allScans.forEach(scan => {
           const scanDate = scan.timestamp.split('T')[0];
           if (scanDate === targetDate) {
-            const key = scan.student_id || scan.uid;
-            if (!dailyAttendanceMap[key]) {
+            // Fix: ensure key is a string to prevent "[object Object]" grouping. 
+            // student_id is an object due to .populate() in backend
+            const key = (scan.student_id?._id || scan.student_id || scan.uid || "").toString();
+            if (key && !dailyAttendanceMap[key]) {
               dailyAttendanceMap[key] = scan;
             }
           }

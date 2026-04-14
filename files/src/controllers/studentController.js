@@ -74,3 +74,71 @@ exports.deleteStudent = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+/**
+ * GET students by parent email (Security restricted)
+ */
+exports.getStudentsByParentEmail = async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Parent email is required' });
+
+  try {
+    const students = await Student.find({ parent_email: email, active: true })
+      .select('name class roll_number uid');
+    
+    if (students.length === 0) {
+      return res.status(404).json({ message: 'No students found associated with this email.' });
+    }
+
+    res.json({ students });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * GET detailed student report for AI automated reply
+ */
+exports.getStudentDetailedReport = async (req, res) => {
+  const { name, parent_email } = req.query;
+
+  if (!name || !parent_email) {
+    return res.status(400).json({ error: 'Name and Parent Email are required for security.' });
+  }
+
+  try {
+    // Security Check: Find student with this name AND linked to this parent email
+    const student = await Student.findOne({
+      name: { $regex: new RegExp(name, 'i') },
+      parent_email: parent_email,
+      active: true
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: 'No matching student found for your account.' });
+    }
+
+    // Get today's status and recent logs
+    const logs = await Attendance.find({ student_id: student._id })
+      .sort({ timestamp: -1 })
+      .limit(5);
+
+    const todayStr = new Date().toDateString();
+    const attendedToday = logs.some(l => new Date(l.timestamp).toDateString() === todayStr);
+
+    res.json({
+      student: {
+        name: student.name,
+        class: student.class,
+        notes: student.notes
+      },
+      status: {
+        is_present_today: attendedToday,
+        last_scan: logs[0] ? logs[0].timestamp : 'None recorded',
+        recent_logs: logs
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

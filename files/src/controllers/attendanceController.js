@@ -7,10 +7,17 @@ const { sendAttendanceEmail } = require('../services/emailService');
  * Log a single scan (from ESP32 or Simulator)
  */
 exports.logScan = async (req, res) => {
-  const { mac, deviceName, uid, timestamp } = req.body;
+  let { mac, deviceName, uid, timestamp } = req.body;
 
   if (!mac || !uid || !timestamp) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // Clock Guard: If timestamp is from the distant past (e.g. Year 2000), use server time
+  const incomingDate = new Date(timestamp);
+  if (isNaN(incomingDate.getTime()) || incomingDate.getFullYear() < 2024) {
+    console.log(`🕒 Invalid/Old timestamp received (${timestamp}). Overriding with server time.`);
+    timestamp = new Date().toISOString();
   }
 
   try {
