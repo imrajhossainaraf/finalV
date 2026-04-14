@@ -34,7 +34,7 @@ app.use('/api', apiRoutes);
 
 // Root Route: Serve React App
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+ res.status(200).json({message: 'Attendly Backend is running', status: 'online', version: '2.5-MVC'});
 });
 
 // Health Check for Render/Monitoring
