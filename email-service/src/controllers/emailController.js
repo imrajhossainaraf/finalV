@@ -334,3 +334,70 @@ exports.sendManual = async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 };
+
+exports.sendExamResults = async (req, res) => {
+  const { student, exam } = req.body;
+
+  if (!student || !exam?.exam_name || !Array.isArray(exam.subjects) || exam.subjects.length === 0) {
+    return res.status(400).json({ error: 'Student and exam details are required.' });
+  }
+
+  const recipients = getRecipients(student);
+  const examLabel = exam.exam_type === 'weekly' && exam.week_label
+    ? `${exam.exam_name} (${exam.week_label})`
+    : exam.exam_name;
+
+  const subjectRows = exam.subjects.map((subject) => `
+    <tr>
+      <td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#0f172a;font-weight:600;">
+        ${subject.subject}
+      </td>
+      <td style="padding:14px 16px;border-bottom:1px solid #e2e8f0;font-size:14px;color:#2563eb;text-align:right;font-weight:700;">
+        ${subject.marks} / ${subject.total_marks || 100}
+      </td>
+    </tr>
+  `).join('');
+
+  const innerContent = `
+    <p style="margin:0 0 24px 0;font-size:16px;color:#334155;line-height:1.6;">
+      Dear Parent/Guardian,<br><br>
+      The latest exam numbers for <strong>${student.name}</strong> have been published.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 6px 0;font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;letter-spacing:0.05em;">Exam</p>
+          <p style="margin:0;font-size:20px;color:#0f172a;font-weight:700;">${examLabel}</p>
+          <p style="margin:10px 0 0 0;font-size:14px;color:#64748b;">Class: ${student.class || 'N/A'} | Roll: ${student.roll_number || 'N/A'}</p>
+        </td>
+      </tr>
+    </table>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+      <tr>
+        <td style="padding:14px 16px;background-color:#eff6ff;font-size:12px;color:#1d4ed8;text-transform:uppercase;font-weight:700;letter-spacing:0.05em;">Subject</td>
+        <td style="padding:14px 16px;background-color:#eff6ff;font-size:12px;color:#1d4ed8;text-transform:uppercase;font-weight:700;letter-spacing:0.05em;text-align:right;">Marks</td>
+      </tr>
+      ${subjectRows}
+    </table>
+
+    <p style="margin:0;font-size:15px;color:#64748b;line-height:1.6;">
+      Please contact the school if you need clarification on these published numbers.
+    </p>
+  `;
+
+  const html = buildEmail('📘', 'Exam Numbers Published', 'Latest subject-wise marks are now available', '#2563eb', '#eff6ff', innerContent);
+
+  try {
+    await transporter.sendMail({
+      from: EMAIL_CONFIG.from,
+      to: recipients,
+      subject: `Exam Numbers: ${student.name} - ${examLabel}`,
+      html
+    });
+    res.json({ success: true, to: recipients });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

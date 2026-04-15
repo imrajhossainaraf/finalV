@@ -7,5 +7,6 @@ router.post('/send-attendance', emailController.sendAttendance);
 router.post('/send-note', emailController.sendNoteAlert);
 router.post('/send-bulk', emailController.sendBulk);
 router.post('/send-manual', emailController.sendManual);
+router.post('/send-exam-results', emailController.sendExamResults);
 
 module.exports = router;

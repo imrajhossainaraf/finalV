@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const studentController = require('../controllers/studentController');
+const examController = require('../controllers/examController');
 const attendanceController = require('../controllers/attendanceController');
 const syncController = require('../controllers/syncController');
 const systemController = require('../controllers/systemController');
@@ -13,6 +14,10 @@ router.get('/students/:uid', studentController.getStudentByUid);
 router.delete('/students/:uid', studentController.deleteStudent);
 router.get('/students/parent/lookup', studentController.getStudentsByParentEmail);
 router.get('/students/parent/report', studentController.getStudentDetailedReport);
+
+// EXAMS
+router.post('/exams/publish', examController.publishExamResults);
+router.post('/exams/send', examController.sendExamResults);
 
 // ── ATTENDANCE ──
 router.post('/attendance', attendanceController.logScan);

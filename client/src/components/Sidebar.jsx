@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Cpu, BarChart3, Users, Zap } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Cpu, BarChart3, Users, Zap, BookOpenCheck } from 'lucide-react';
 
 export default function Sidebar() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
     { name: 'Students', path: '/students', icon: <Users size={20} /> },
+    { name: 'Exams', path: '/exams', icon: <BookOpenCheck size={20} /> },
     { name: 'Attendance', path: '/attendance', icon: <ClipboardList size={20} /> },
     { name: 'Devices', path: '/devices', icon: <Cpu size={20} /> },
     { name: 'Analytics', path: '/analytics', icon: <BarChart3 size={20} /> },

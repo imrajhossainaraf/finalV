@@ -36,7 +36,25 @@ const sendNoteNotification = async (student, note) => {
   }
 };
 
+/**
+ * Triggers an exam result notification for a registered student.
+ */
+const sendExamResultNotification = async (student, exam) => {
+  try {
+    await axios.post(`${EMAIL_SERVICE_URL}/send-exam-results`, {
+      student,
+      exam
+    });
+    console.log(`Exam result notification triggered for ${student.name}`);
+    return true;
+  } catch (err) {
+    console.error('Local Email Service failed (Exam Results):', err.message);
+    return false;
+  }
+};
+
 module.exports = {
   sendAttendanceEmail,
-  sendNoteNotification
+  sendNoteNotification,
+  sendExamResultNotification
 };
