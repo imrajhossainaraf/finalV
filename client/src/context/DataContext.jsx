@@ -19,6 +19,7 @@ export function DataProvider({ children }) {
   const [lastFetch, setLastFetch] = useState(null);
   const [forcedDate, setForcedDateState] = useState(() => sessionStorage.getItem('attendly_forcedDate') || "");
   const [triggeredIds, setTriggeredIds] = useState(new Set());
+  const [todayAttendanceMap, setTodayAttendanceMap] = useState({});
 
   // Wrapper for setForcedDate to also update sessionStorage so it persists page reloads
   const setForcedDate = useCallback((date) => {
@@ -196,6 +197,7 @@ export function DataProvider({ children }) {
         setAttendance(displayScans);
         setDevices(rawDevices);
         setStudents(rawStudents);
+        setTodayAttendanceMap(dailyAttendanceMap);
         setLastFetch(new Date());
 
         // Cache the data locally so it persists when the page is refreshed or goes offline
@@ -279,6 +281,7 @@ export function DataProvider({ children }) {
         resetDemoData,
         forcedDate,
         setForcedDate,
+        todayAttendanceMap,
       }}
     >
       {children}

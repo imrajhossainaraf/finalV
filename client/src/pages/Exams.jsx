@@ -2,7 +2,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useData } from '../context/DataContext';
-import { BookOpen, FileSpreadsheet, Mail, Plus, Send, Trash2 } from 'lucide-react';
+import { BookOpen, FileSpreadsheet, Mail, Plus, Send, Trash2, Filter } from 'lucide-react';
 
 const createSubject = () => ({
   id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -28,15 +28,22 @@ export default function Exams() {
     exam_type: 'final',
     week_label: ''
   });
+  const [selectedClass, setSelectedClass] = useState('all');
   const [subjects, setSubjects] = useState([createSubject()]);
   const [marksByUid, setMarksByUid] = useState({});
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const classOptions = [...new Set((students || []).map((student) => student.class).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  );
   const registeredStudents = (students || []).filter(isRegisteredStudent);
+  const scopedStudents = registeredStudents.filter((student) =>
+    selectedClass === 'all' ? true : (student.class || '') === selectedClass
+  );
   const filledSubjects = subjects.filter((subject) => subject.subject.trim());
 
-  const recentPublished = registeredStudents
+  const recentPublished = scopedStudents
     .flatMap((student) =>
       (student.exam_records || []).map((record) => ({
         key: `${student.uid}-${record._id || record.published_at}`,
@@ -89,6 +96,11 @@ export default function Exams() {
   };
 
   const buildPayload = () => {
+    if (selectedClass === 'all') {
+      toast.error('Select a class before defining subjects or sending exam numbers.');
+      return null;
+    }
+
     if (!examMeta.exam_name.trim()) {
       toast.error('Exam name is required.');
       return null;
@@ -106,7 +118,7 @@ export default function Exams() {
 
     const incompleteStudents = [];
 
-    const results = registeredStudents
+    const results = scopedStudents
       .map((student) => {
         const subjectMarks = filledSubjects.map((subject) => {
           const rawValue = marksByUid[student.uid]?.[subject.id];
@@ -181,9 +193,10 @@ export default function Exams() {
     }
   };
 
-  const completedStudents = registeredStudents.filter((student) => {
+  const completedStudents = scopedStudents.filter((student) => {
     const latestExam = (student.exam_records || []).slice(-1)[0];
-    return latestExam?.exam_name === examMeta.exam_name.trim();
+    return latestExam?.exam_name === examMeta.exam_name.trim() &&
+      (examMeta.exam_type === 'weekly' ? (latestExam?.week_label || '') === examMeta.week_label.trim() : true);
   }).length;
 
   return (
@@ -201,7 +214,7 @@ export default function Exams() {
             Exam Numbers
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--attendly-text-muted)' }}>
-            Publish subject-wise exam numbers and send them only to registered students.
+            Select a class, define its subjects and weekly/main exam label, then send only to registered students in that class.
           </p>
         </div>
 
@@ -238,7 +251,7 @@ export default function Exams() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: 'Registered Students', value: registeredStudents.length, icon: <Mail size={16} />, color: '#22d3ee' },
+          { label: 'Registered In Class', value: scopedStudents.length, icon: <Mail size={16} />, color: '#22d3ee' },
           { label: 'Subjects Added', value: filledSubjects.length, icon: <BookOpen size={16} />, color: '#818cf8' },
           { label: 'Latest Exam Matches', value: completedStudents, icon: <FileSpreadsheet size={16} />, color: '#34d399' },
         ].map((item) => (
@@ -260,7 +273,32 @@ export default function Exams() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_0.75fr] gap-6">
         <div className="glass-card p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--attendly-text-muted)' }}>
+                Target Class
+              </label>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2" size={14} style={{ color: 'var(--attendly-text-muted)' }} />
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
+                  style={{
+                    background: 'var(--attendly-bg-elevated)',
+                    border: '1px solid var(--attendly-border)',
+                    color: 'var(--attendly-text-primary)',
+                  }}
+                >
+                  <option value="all">All Classes</option>
+                  {classOptions.map((className) => (
+                    <option key={className} value={className}>
+                      {className}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--attendly-text-muted)' }}>
                 Exam Name
@@ -329,6 +367,7 @@ export default function Exams() {
 
               <button
                 onClick={addSubject}
+                disabled={selectedClass === 'all'}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold"
                 style={{
                   background: 'rgba(99,102,241,0.12)',
@@ -341,6 +380,19 @@ export default function Exams() {
               </button>
             </div>
 
+            {selectedClass === 'all' && (
+              <div
+                className="rounded-2xl px-4 py-3 text-xs"
+                style={{
+                  background: 'rgba(245,158,11,0.08)',
+                  border: '1px solid rgba(245,158,11,0.2)',
+                  color: '#fbbf24',
+                }}
+              >
+                Choose a class first. Subjects, weekly labels, marks, and sends are scoped to the selected class only.
+              </div>
+            )}
+
             {subjects.map((subject, index) => (
               <div key={subject.id} className="grid grid-cols-1 md:grid-cols-[1fr_160px_44px] gap-3">
                 <input
@@ -348,6 +400,7 @@ export default function Exams() {
                   value={subject.subject}
                   onChange={(e) => handleSubjectChange(subject.id, 'subject', e.target.value)}
                   placeholder={`Subject ${index + 1}`}
+                  disabled={selectedClass === 'all'}
                   className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
                   style={{
                     background: 'var(--attendly-bg-elevated)',
@@ -361,6 +414,7 @@ export default function Exams() {
                   value={subject.total_marks}
                   onChange={(e) => handleSubjectChange(subject.id, 'total_marks', e.target.value)}
                   placeholder="Total Marks"
+                  disabled={selectedClass === 'all'}
                   className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
                   style={{
                     background: 'var(--attendly-bg-elevated)',
@@ -370,7 +424,7 @@ export default function Exams() {
                 />
                 <button
                   onClick={() => removeSubject(subject.id)}
-                  disabled={subjects.length === 1}
+                  disabled={subjects.length === 1 || selectedClass === 'all'}
                   className="rounded-xl flex items-center justify-center disabled:opacity-40"
                   style={{
                     background: 'rgba(239,68,68,0.1)',
@@ -390,7 +444,7 @@ export default function Exams() {
             Recent Published Results
           </h2>
           <p className="text-xs mb-4" style={{ color: 'var(--attendly-text-muted)' }}>
-            Latest student records already stored in the system.
+            Latest student records for the selected class.
           </p>
 
           <div className="space-y-3">
@@ -463,7 +517,7 @@ export default function Exams() {
               </tr>
             </thead>
             <tbody>
-              {registeredStudents.map((student) => (
+              {scopedStudents.map((student) => (
                 <tr key={student.uid} style={{ borderBottom: '1px solid rgba(99,102,241,0.06)' }}>
                   <td className="px-5 py-4">
                     <div>
@@ -492,6 +546,7 @@ export default function Exams() {
                         value={marksByUid[student.uid]?.[subject.id] ?? ''}
                         onChange={(e) => handleMarksChange(student.uid, subject.id, e.target.value)}
                         placeholder="0"
+                        disabled={selectedClass === 'all'}
                         className="w-28 px-3 py-2 rounded-xl text-sm border-none focus:outline-none"
                         style={{
                           background: 'var(--attendly-bg-elevated)',
@@ -504,14 +559,16 @@ export default function Exams() {
                 </tr>
               ))}
 
-              {registeredStudents.length === 0 && (
+              {scopedStudents.length === 0 && (
                 <tr>
                   <td
                     colSpan={Math.max(filledSubjects.length + 2, 3)}
                     className="px-5 py-10 text-center text-sm"
                     style={{ color: 'var(--attendly-text-muted)' }}
                   >
-                    No registered students are available yet.
+                    {selectedClass === 'all'
+                      ? 'Choose a class to load the matching registered students.'
+                      : 'No registered students are available for this class yet.'}
                   </td>
                 </tr>
               )}

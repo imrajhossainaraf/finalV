@@ -5,8 +5,9 @@ import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User
 import { toast } from 'react-toastify';
 
 export default function Students() {
-  const { students, refetch, sendManualNotice } = useData();
+  const { students, refetch, sendManualNotice, todayAttendanceMap } = useData();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClass, setSelectedClass] = useState('all');
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,10 +30,17 @@ export default function Students() {
   const [studentToDelete, setStudentToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const classOptions = [...new Set((students || []).map((student) => student.class).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
   // Filter out students by name or UID
   const filteredStudents = students?.filter((s) => 
-    (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (s.uid && s.uid.toLowerCase().includes(searchTerm.toLowerCase()))
+    (
+      (s.name && s.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (s.uid && s.uid.toLowerCase().includes(searchTerm.toLowerCase()))
+    ) &&
+    (selectedClass === 'all' || (s.class || '') === selectedClass)
   ) || [];
 
   const handleEdit = (student) => {
@@ -149,7 +157,7 @@ export default function Students() {
       <div className="glass-card overflow-hidden animate-fade-in-up stagger-1">
         {/* Toolbar */}
         <div
-          className="p-4"
+          className="p-4 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between"
           style={{ borderBottom: '1px solid var(--attendly-border)' }}
         >
           <div className="relative max-w-md w-full">
@@ -170,6 +178,25 @@ export default function Students() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="w-full max-w-xs">
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none"
+              style={{
+                background: 'var(--attendly-bg-elevated)',
+                border: '1px solid var(--attendly-border)',
+                color: 'var(--attendly-text-primary)',
+              }}
+            >
+              <option value="all">All Classes</option>
+              {classOptions.map((className) => (
+                <option key={className} value={className}>
+                  {className}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -199,6 +226,10 @@ export default function Students() {
             <tbody>
               {filteredStudents.map((student, idx) => {
                 const isUnknown = student.name.startsWith('Unknown-');
+                const studentId = (student._id || student.id || student.uid)?.toString();
+                const isPresent = !!todayAttendanceMap?.[studentId];
+                const isAbsent = !isPresent && !isUnknown && (student.active === 1 || student.active === true);
+
                 return (
                   <tr
                     key={student._id || student.uid || idx}
@@ -210,12 +241,26 @@ export default function Students() {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0"
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 transition-all duration-300"
                           style={
                             isUnknown
                               ? {
                                   background: 'var(--attendly-glow-error)',
                                   color: 'var(--attendly-accent-error)',
+                                }
+                              : isPresent 
+                              ? {
+                                  background: 'rgba(16, 185, 129, 0.1)',
+                                  color: '#10b981',
+                                  border: '2px solid #10b981',
+                                  boxShadow: '0 0 15px rgba(16, 185, 129, 0.4)',
+                                }
+                              : isAbsent
+                              ? {
+                                  background: 'rgba(239, 68, 68, 0.1)',
+                                  color: '#ef4444',
+                                  border: '2px solid #ef4444',
+                                  boxShadow: '0 0 15px rgba(239, 68, 68, 0.4)',
                                 }
                               : {
                                   background: 'linear-gradient(135deg, rgba(99,102,241,0.2), rgba(6,182,212,0.2))',
@@ -236,7 +281,7 @@ export default function Students() {
                             )}
                           </div>
                           <div className="text-xs" style={{ color: 'var(--attendly-text-muted)' }}>
-                            {isUnknown ? 'Needs mapping' : student.email}
+                            {isUnknown ? 'Needs mapping' : (isPresent ? 'Check-in recorded' : (isAbsent ? 'Absent today' : student.email))}
                           </div>
                         </div>
                       </div>
@@ -265,9 +310,9 @@ export default function Students() {
                         style={
                           student.active
                             ? {
-                                background: 'var(--attendly-glow-success)',
-                                color: '#34d399',
-                                border: '1px solid rgba(16,185,129,0.25)',
+                                background: isPresent ? 'var(--attendly-glow-success)' : 'var(--attendly-bg-elevated)',
+                                color: isPresent ? '#34d399' : 'var(--attendly-text-muted)',
+                                border: isPresent ? '1px solid rgba(16,185,129,0.25)' : '1px solid var(--attendly-border)',
                               }
                             : {
                                 background: 'var(--attendly-bg-elevated)',
@@ -278,9 +323,9 @@ export default function Students() {
                       >
                         <span
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ background: student.active ? '#34d399' : 'var(--attendly-text-muted)' }}
+                          style={{ background: isPresent ? '#34d399' : 'var(--attendly-text-muted)' }}
                         />
-                        {student.active ? 'Active' : 'Inactive'}
+                        {isPresent ? 'Present' : (student.active ? 'Expected' : 'Inactive')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -355,7 +400,7 @@ export default function Students() {
                               style={{
                                 background: 'rgba(239,68,68,0.1)',
                                 color: '#ef4444',
-                                border: '1px solid rgba(239,68,68,0.2)',
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
                               }}
                             >
                               <Trash2 size={14} />

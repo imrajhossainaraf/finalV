@@ -10,6 +10,7 @@ import Devices from './pages/Devices';
 import Analytics from './pages/Analytics';
 import Students from './pages/Students';
 import Exams from './pages/Exams';
+import Summary from './pages/Summary';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="students" element={<Students />} />
+            <Route path="summary" element={<Summary />} />
             <Route path="exams" element={<Exams />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="devices" element={<Devices />} />

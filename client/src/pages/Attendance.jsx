@@ -7,8 +7,13 @@ export default function Attendance() {
   const { attendance, students, triggerLocalEmail } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedClass, setSelectedClass] = useState('all');
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const classOptions = [...new Set((students || []).map((student) => student.class).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b)
+  );
 
   // Filtering
   const filteredAttendance = attendance?.filter((record) => {
@@ -18,8 +23,10 @@ export default function Attendance() {
       
     const recordDate = new Date(record.timestamp).toISOString().split('T')[0];
     const matchesDate = filterDate ? recordDate === filterDate : true;
+    const recordClass = record.student_id?.class || students?.find((student) => student.uid === record.uid)?.class || '';
+    const matchesClass = selectedClass === 'all' ? true : recordClass === selectedClass;
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesClass;
   }) || [];
 
   const handleViewCard = (record) => {
@@ -113,7 +120,24 @@ export default function Attendance() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="relative">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select
+              value={selectedClass}
+              onChange={(e) => setSelectedClass(e.target.value)}
+              className="px-4 py-2.5 rounded-xl text-sm"
+              style={{
+                background: 'var(--attendly-bg-elevated)',
+                border: '1px solid var(--attendly-border)',
+                color: 'var(--attendly-text-primary)',
+              }}
+            >
+              <option value="all">All Classes</option>
+              {classOptions.map((className) => (
+                <option key={className} value={className}>
+                  {className}
+                </option>
+              ))}
+            </select>
             <input 
               type="date" 
               className="px-4 py-2.5 rounded-xl text-sm"
