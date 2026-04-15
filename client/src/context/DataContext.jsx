@@ -29,7 +29,9 @@ export function DataProvider({ children }) {
   const triggerLocalEmail = useCallback(async (record) => {
     try {
       // Find student info if not already in record
-      const student = students.find(s => s.id === record.student_id) || {
+      // Handle populated student_id object or raw ID
+      const sId = (record.student_id?._id || record.student_id || record.uid)?.toString();
+      const student = students.find(s => (s._id || s.id || s.uid)?.toString() === sId) || {
         name: record.student_name,
         email: record.email,
         class: record.class,
@@ -51,7 +53,7 @@ export function DataProvider({ children }) {
       
       // Sync status back to main server if possible
       try {
-        await axios.patch(`/api/attendance/${record.id}/status`, { email_sent: 1 });
+        await axios.patch(`/api/attendance/${record._id || record.id}/status`, { email_sent: 1 });
       } catch (syncErr) {
         console.error('Failed to sync status:', syncErr.message);
       }
@@ -91,7 +93,8 @@ export function DataProvider({ children }) {
       
       const attendanceMap = {};
       attendanceForDate.forEach(r => {
-        if (r.student_id) attendanceMap[r.student_id] = true;
+        const sId = r.student_id?._id || r.student_id;
+        if (sId) attendanceMap[sId.toString()] = true;
       });
 
       // 2. Prepare student status list (Active only)
@@ -104,7 +107,7 @@ export function DataProvider({ children }) {
           parent_email: s.parent_email,
           teacher_email: s.teacher_email,
           class: s.class,
-          hasAttended: !!attendanceMap[s._id || s.id]
+          hasAttended: !!attendanceMap[(s._id || s.id)?.toString()]
         }));
 
       if (bulkList.length === 0) {
@@ -238,11 +241,17 @@ export function DataProvider({ children }) {
 
   useEffect(() => {
     const processPending = async () => {
-      const pending = attendance.filter(r => r.email_sent === 0 && !triggeredIds.has(r.id));
+      const pending = attendance.filter(r => 
+        (r.email_sent === 0 || r.email_sent === false) && 
+        !triggeredIds.has((r._id || r.id)?.toString())
+      );
+
       if (pending.length > 0) {
         const newIds = new Set(triggeredIds);
         for (const record of pending) {
-          newIds.add(record.id);
+          const rId = (record._id || record.id)?.toString();
+          if (!rId) continue;
+          newIds.add(rId);
           triggerLocalEmail(record);
         }
         setTriggeredIds(newIds);

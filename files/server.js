@@ -57,7 +57,7 @@ async function run() {
     if (studentCount === 0) {
       console.log('🌱 Seeding mock data for Science Fair...');
       const mockStudents = [
-        { uid: 'A1B2C3D4', name: 'John Doe', email: 'imrajhossainarafraf12@gmail.com', parent_email: 'parent.john@example.com', teacher_email: 'class.teacher@school.com', class: 'CS-101', roll_number: '01' },
+        { uid: 'A1B2C3D4', name: 'John Doe', email: 'imrajhossainaraf12@gmail.com', parent_email: 'parent.john@example.com', teacher_email: 'class.teacher@school.com', class: 'CS-101', roll_number: '01' },
         { uid: 'E5F6G7H8', name: 'Jane Smith', email: 'jane@example.com', parent_email: 'parent.jane@example.com', teacher_email: 'class.teacher@school.com', class: 'CS-101', roll_number: '02' }
       ];
       await Student.insertMany(mockStudents);

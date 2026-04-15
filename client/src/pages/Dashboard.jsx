@@ -32,7 +32,7 @@ export default function Dashboard() {
   const handleSimulateScan = async () => {
     try {
       // Mock scan for 'John Doe' (A1B2C3D4) - Hits Render to test full pipeline
-      await axios.post('https://finalv.onrender.com/api/attendance', {
+      await axios.post('/api/attendance', {
         mac: 'SIMULATOR-001',
         deviceName: 'Demo Simulator',
         uid: 'A1B2C3D4',

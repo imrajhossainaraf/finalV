@@ -143,7 +143,7 @@ export default function Attendance() {
             </thead>
             <tbody>
               {filteredAttendance.map((record, idx) => (
-                <tr key={record.id || idx} className="group">
+                <tr key={record._id || record.id || idx} className="group">
                   <td>
                     <div className="flex items-center gap-3">
                       <div
@@ -167,7 +167,7 @@ export default function Attendance() {
                           )}
                         </div>
                         <div className="text-xs" style={{ color: 'var(--attendly-text-muted)' }}>
-                          {record.class || 'No class'}
+                          {record.student_id?.class || 'No class'}
                         </div>
                       </div>
                     </div>
