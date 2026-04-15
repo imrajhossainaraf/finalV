@@ -257,7 +257,7 @@ export default function Attendance() {
       {/* Personal Card Modal (Same as Students page) */}
       {isCardOpen && selectedStudent && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
           onClick={() => setIsCardOpen(false)}
         >
           <div

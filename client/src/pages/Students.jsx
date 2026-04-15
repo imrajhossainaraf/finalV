@@ -201,7 +201,7 @@ export default function Students() {
                 const isUnknown = student.name.startsWith('Unknown-');
                 return (
                   <tr
-                    key={student.id}
+                    key={student._id || student.uid || idx}
                     className="transition-all duration-200 group"
                     style={{ borderBottom: '1px solid rgba(99,102,241,0.06)' }}
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.04)'; }}
@@ -573,7 +573,7 @@ export default function Students() {
                 </label>
                 <textarea 
                   placeholder="e.g. Fought today, has to pay dues, etc." 
-                  className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none min-h-[80px] resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl text-sm border-none focus:outline-none min-h-20 resize-none"
                   style={{
                     background: 'var(--attendly-bg-elevated)',
                     border: '1px solid var(--attendly-border)',
@@ -627,7 +627,7 @@ export default function Students() {
       {/* Personal Card Modal */}
       {isCardOpen && selectedStudent && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in"
           onClick={() => setIsCardOpen(false)}
         >
           <div
@@ -706,7 +706,7 @@ export default function Students() {
           onClick={(e) => { if (e.target === e.currentTarget) setIsDeleteModalOpen(false); }}
         >
           <div
-            className="w-full max-w-sm rounded-[2rem] overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-scale-in bg-slate-900 border border-slate-700"
+            className="w-full max-w-sm rounded-4xl overflow-hidden relative shadow-[0_20px_50px_rgba(0,0,0,0.3)] animate-scale-in bg-slate-900 border border-slate-700"
           >
             <div className="p-8 text-center pt-10 relative">
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[60px] rounded-full -mr-16 -mt-16" />
