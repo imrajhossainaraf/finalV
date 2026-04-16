@@ -12,6 +12,8 @@ import Analytics from './pages/Analytics';
 import Students from './pages/Students';
 import Exams from './pages/Exams';
 import Summary from './pages/Summary';
+import Notices from './pages/Notices';
+
 import SplashScreen from './components/SplashScreen';
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
             <Route path="attendance" element={<Attendance />} />
             <Route path="devices" element={<Devices />} />
             <Route path="analytics" element={<Analytics />} />
+            <Route path="notices" element={<Notices />} />
+
           </Route>
         </Routes>
       </BrowserRouter>

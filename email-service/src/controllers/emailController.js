@@ -72,7 +72,8 @@ function buildEmail(icon, title, subtitle, mainColor, accentColor, innerContent)
         <!-- Main Card Container -->
         <tr>
           <td>
-            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.05);border:1px solid #f1f5f9;border-top:6px solid #dc2626;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.03), 0 1px 3px rgba(0,0,0,0.05);border:1px solid #f1f5f9;border-top:6px solid ${mainColor};">
+
               
               <!-- Clean Formal Header -->
               <tr>
@@ -401,3 +402,55 @@ exports.sendExamResults = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.sendNotice = async (req, res) => {
+  const { student, notice } = req.body;
+
+  if (!student || !notice?.title || !notice?.content) {
+    return res.status(400).json({ error: 'Student and notice details are required.' });
+  }
+
+  const recipients = getRecipients(student);
+  
+  const innerContent = `
+    <p style="margin:0 0 24px 0;font-size:16px;color:#334155;line-height:1.6;">
+      Dear Parent/Guardian,<br><br>
+      The school has issued a new official notice regarding <strong>${student.name}</strong> and the school community.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:20px 24px;">
+          <p style="margin:0 0 6px 0;font-size:12px;color:#64748b;text-transform:uppercase;font-weight:600;letter-spacing:0.05em;">Subject</p>
+          <p style="margin:0;font-size:20px;color:#0f172a;font-weight:700;">${notice.title}</p>
+          <p style="margin:10px 0 0 0;font-size:14px;color:#64748b;">Category: ${notice.category || 'General'}</p>
+        </td>
+      </tr>
+    </table>
+
+    <div style="padding:24px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:24px;">
+       <p style="margin:0;font-size:16px;color:#1e293b;line-height:1.7;white-space: pre-wrap;">
+          ${notice.content}
+       </p>
+    </div>
+
+    <p style="margin:0;font-size:15px;color:#64748b;line-height:1.6;">
+       This is an official communication from CNHHS Smart School System. Please contact the administration if you have further inquiries.
+    </p>
+  `;
+
+  const html = buildEmail('📢', 'Official School Notice', notice.title, '#7c3aed', '#f5f3ff', innerContent);
+
+  try {
+    await transporter.sendMail({
+      from: EMAIL_CONFIG.from,
+      to: recipients,
+      subject: `Notice: ${notice.title}`,
+      html
+    });
+    res.json({ success: true, to: recipients });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+

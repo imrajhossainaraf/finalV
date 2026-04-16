@@ -6,6 +6,8 @@ const examController = require('../controllers/examController');
 const attendanceController = require('../controllers/attendanceController');
 const syncController = require('../controllers/syncController');
 const systemController = require('../controllers/systemController');
+const noticeController = require('../controllers/noticeController');
+
 
 // ── STUDENTS ──
 router.get('/students', studentController.getAllStudents);
@@ -32,5 +34,12 @@ router.post('/sync', syncController.batchSync);
 router.get('/devices', systemController.getDevices);
 router.get('/stats', systemController.getStats);
 router.post('/inquiry/lookup', systemController.lookupInquiry);
+
+// ── NOTICES ──
+router.get('/notices', noticeController.getAllNotices);
+router.post('/notices', noticeController.createNotice);
+router.post('/notices/:id/send', noticeController.sendNoticeToParents);
+router.delete('/notices/:id', noticeController.deleteNotice);
+
 
 module.exports = router;

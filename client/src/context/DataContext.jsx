@@ -20,6 +20,8 @@ export function DataProvider({ children }) {
   const [forcedDate, setForcedDateState] = useState(() => sessionStorage.getItem('attendly_forcedDate') || "");
   const [triggeredIds, setTriggeredIds] = useState(new Set());
   const [todayAttendanceMap, setTodayAttendanceMap] = useState({});
+  const [notices, setNotices] = useState(() => JSON.parse(localStorage.getItem('attendly_notices')) || []);
+
 
   // Wrapper for setForcedDate to also update sessionStorage so it persists page reloads
   const setForcedDate = useCallback((date) => {
@@ -129,50 +131,80 @@ export function DataProvider({ children }) {
     }
   }, [students, attendance]);
 
+  const fetchNotices = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/notices');
+      setNotices(res.data);
+      localStorage.setItem('attendly_notices', JSON.stringify(res.data));
+    } catch (err) {
+      console.error('Failed to fetch notices:', err.message);
+    }
+  }, []);
+
+  const addNotice = useCallback(async (noticeData) => {
+    try {
+      const res = await axios.post('/api/notices', noticeData);
+      setNotices(prev => [res.data, ...prev]);
+      toast.success('Notice created successfully');
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to create notice');
+      throw err;
+    }
+  }, []);
+
+  const broadcastNotice = useCallback(async (noticeId) => {
+    try {
+      const res = await axios.post(`/api/notices/${noticeId}/send`);
+      toast.success(res.data.message);
+      fetchNotices(); // Refresh to get updated sentAt
+      return res.data;
+    } catch (err) {
+      toast.error('Failed to broadcast notice');
+      throw err;
+    }
+  }, [fetchNotices]);
+
+
   const fetchAllData = useCallback(
     async (silent = true) => {
       try {
         if (!silent) setLoading(true);
 
-        const [devicesRes, studentsRes, allScansRes] =
+        const [devicesRes, studentsRes, allScansRes, noticesRes] =
           await Promise.all([
             axios.get("/api/devices"),
             axios.get("/api/students"),
-            axios.get("/api/attendance"), // Fetch all scans un-filtered to compute chart data correctly
+            axios.get("/api/attendance"),
+            axios.get("/api/notices"),
           ]);
 
         const rawDevices = devicesRes.data.devices || [];
         const rawStudents = studentsRes.data.students || [];
         let allScans = allScansRes.data.attendance || [];
+        const rawNotices = Array.isArray(noticesRes.data) ? noticesRes.data : [];
+
 
         // 1. Handle timestamps from both SQLite (Legacy) and MongoDB (New)
         allScans = allScans.map(scan => {
-          // Prefer 'timestamp' if available (it's the actual scan time)
           const rawTime = scan.timestamp || scan.created_at;
           
           if (rawTime && typeof rawTime === 'string' && rawTime.includes(' ')) {
-            // Legacy SQLite format: 'YYYY-MM-DD HH:MM:SS'
             scan.timestamp = rawTime.replace(' ', 'T') + (rawTime.includes('Z') ? '' : 'Z'); 
           } else if (rawTime) {
-            // MongoDB / ISO format
             scan.timestamp = new Date(rawTime).toISOString();
           }
           return scan;
         });
 
-        // Force sort dynamically just in case database order was based on the broken timestamps
         allScans.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-        // 2. Identify target date for stats calculation (either forcedDate or today's true date)
         const targetDate = forcedDate || new Date().toISOString().split('T')[0];
 
-        // 3. Calculate accurate stats based on the corrected timestamps
         const dailyAttendanceMap = {};
         allScans.forEach(scan => {
           const scanDate = scan.timestamp.split('T')[0];
           if (scanDate === targetDate) {
-            // Fix: ensure key is a string to prevent "[object Object]" grouping. 
-            // student_id is an object due to .populate() in backend
             const key = (scan.student_id?._id || scan.student_id || scan.uid || "").toString();
             if (key && !dailyAttendanceMap[key]) {
               dailyAttendanceMap[key] = scan;
@@ -183,11 +215,10 @@ export function DataProvider({ children }) {
         const computedStats = {
           totalStudents: rawStudents.filter(s => s.active === 1 || s.active === true).length,
           totalDevices: rawDevices.length,
-          todayAttendance: Object.keys(dailyAttendanceMap).length, // Unique records today
-          totalAttendance: allScans.length // All-time scans
+          todayAttendance: Object.keys(dailyAttendanceMap).length,
+          totalAttendance: allScans.length
         };
 
-        // 4. If a forcedDate is selected, only pass that day's data down so UI updates to that day
         let displayScans = allScans;
         if (forcedDate) {
            displayScans = allScans.filter(scan => scan.timestamp.split('T')[0] === forcedDate);
@@ -197,14 +228,15 @@ export function DataProvider({ children }) {
         setAttendance(displayScans);
         setDevices(rawDevices);
         setStudents(rawStudents);
+        setNotices(rawNotices);
         setTodayAttendanceMap(dailyAttendanceMap);
         setLastFetch(new Date());
 
-        // Cache the data locally so it persists when the page is refreshed or goes offline
         localStorage.setItem('attendly_stats', JSON.stringify(computedStats));
         localStorage.setItem('attendly_attendance', JSON.stringify(displayScans));
         localStorage.setItem('attendly_devices', JSON.stringify(rawDevices));
         localStorage.setItem('attendly_students', JSON.stringify(rawStudents));
+        localStorage.setItem('attendly_notices', JSON.stringify(rawNotices));
       } catch (err) {
         console.error("Error fetching data:", err);
         if (!silent) {
@@ -216,6 +248,7 @@ export function DataProvider({ children }) {
     },
     [forcedDate],
   );
+
 
   const resetDemoData = useCallback(async () => {
     try {
@@ -279,10 +312,14 @@ export function DataProvider({ children }) {
         sendManualNotice,
         triggerBulkNotice,
         resetDemoData,
-        forcedDate,
         setForcedDate,
         todayAttendanceMap,
+        notices,
+        fetchNotices,
+        addNotice,
+        broadcastNotice,
       }}
+
     >
       {children}
     </DataContext.Provider>
