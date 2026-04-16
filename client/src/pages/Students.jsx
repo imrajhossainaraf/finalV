@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useData } from '../context/DataContext';
-import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User, Trash2 } from 'lucide-react';
+import { Search, Plus, UserCircle, Save, X, Edit3, ShieldAlert, Hash, Mail, User, Trash2, UserCheck } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function Students() {
-  const { students, refetch, sendManualNotice, todayAttendanceMap } = useData();
+  const { students, refetch, sendManualNotice, todayAttendanceMap, markManualAttendance } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('all');
   
@@ -380,6 +380,20 @@ export default function Students() {
 
                         {!isUnknown && (
                           <>
+                            <button
+                              onClick={() => markManualAttendance(student)}
+                              disabled={isPresent}
+                              className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110 disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed"
+                              title={isPresent ? "Already Present" : "Manual Check-in"}
+                              style={{
+                                background: isPresent ? 'rgba(52,211,153,0.05)' : 'rgba(99,102,241,0.1)',
+                                color: isPresent ? '#34d399' : '#818cf8',
+                                border: `1px solid ${isPresent ? 'rgba(52,211,153,0.1)' : 'rgba(99,102,241,0.2)'}`,
+                              }}
+                            >
+                              <UserCheck size={14} />
+                            </button>
+
                             <button
                               onClick={() => sendManualNotice(student, "This is a manual check-in from CNHHS Management.")}
                               className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"

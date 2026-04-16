@@ -298,6 +298,25 @@ export function DataProvider({ children }) {
     }
   }, [attendance, triggeredIds, students, triggerLocalEmail]);
 
+  const markManualAttendance = useCallback(async (student) => {
+    try {
+      const res = await axios.post('/api/attendance', {
+        uid: student.uid,
+        mac: 'WEB_PORTAL',
+        deviceName: 'Management Web Portal',
+        timestamp: new Date().toISOString()
+      });
+      
+      if (res.data.success) {
+        toast.success(`Manual check-in successful for ${student.name}`);
+        fetchAllData(false); // Refresh UI
+      }
+    } catch (err) {
+      console.error('❌ Manual attendance failed:', err.message);
+      toast.error(err.response?.data?.error || 'Failed to record manual attendance.');
+    }
+  }, [fetchAllData]);
+
   return (
     <DataContext.Provider
       value={{
@@ -313,6 +332,7 @@ export function DataProvider({ children }) {
         triggerBulkNotice,
         resetDemoData,
         setForcedDate,
+        markManualAttendance,
         todayAttendanceMap,
         notices,
         fetchNotices,
