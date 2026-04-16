@@ -40,9 +40,10 @@
 }
 
 /* ─── Global Styles ─── */
+html,
 body {
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  background-color: var(--attendly-bg-base);
+  background-color: #020617; /* Matches Splash Screen background precisely */
   color: var(--attendly-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -11,8 +12,15 @@ import Analytics from './pages/Analytics';
 import Students from './pages/Students';
 import Exams from './pages/Exams';
 import Summary from './pages/Summary';
+import SplashScreen from './components/SplashScreen';
 
 export default function App() {
+  const [isBooting, setIsBooting] = useState(true);
+
+  if (isBooting) {
+    return <SplashScreen onComplete={() => setIsBooting(false)} />;
+  }
+
   return (
     <DataProvider>
       <BrowserRouter>

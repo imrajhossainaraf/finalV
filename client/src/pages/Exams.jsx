@@ -69,6 +69,11 @@ export default function Exams() {
   };
 
   const handleMarksChange = (uid, subjectId, value) => {
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (subject && value !== '' && Number(value) > subject.total_marks) {
+      toast.warn(`Marks cannot exceed full marks (${subject.total_marks}) for ${subject.subject}`);
+      return;
+    }
     setMarksByUid((current) => ({
       ...current,
       [uid]: {
@@ -120,14 +125,26 @@ export default function Exams() {
 
     const results = scopedStudents
       .map((student) => {
+        let invalidMark = null;
         const subjectMarks = filledSubjects.map((subject) => {
           const rawValue = marksByUid[student.uid]?.[subject.id];
+          const marks = rawValue === '' || rawValue === undefined ? null : Number(rawValue);
+
+          if (marks !== null && marks > subject.total_marks) {
+            invalidMark = { subject: subject.subject, marks, total: subject.total_marks };
+          }
+
           return {
             subject: subject.subject.trim(),
             total_marks: Number(subject.total_marks) || 100,
-            marks: rawValue === '' || rawValue === undefined ? null : Number(rawValue)
+            marks: marks
           };
         });
+
+        if (invalidMark) {
+          toast.error(`${student.name}: ${invalidMark.subject} marks (${invalidMark.marks}) exceed full marks (${invalidMark.total})`);
+          return null;
+        }
 
         const enteredCount = subjectMarks.filter((subject) => subject.marks !== null && Number.isFinite(subject.marks)).length;
 
@@ -140,7 +157,7 @@ export default function Exams() {
           subjects: subjectMarks.filter((subject) => subject.marks !== null && Number.isFinite(subject.marks))
         };
       })
-      .filter((student) => student.subjects.length > 0);
+      .filter((student) => student !== null && student.subjects.length > 0);
 
     if (incompleteStudents.length > 0) {
       toast.error(`Complete all subject marks for: ${incompleteStudents.slice(0, 3).join(', ')}`);

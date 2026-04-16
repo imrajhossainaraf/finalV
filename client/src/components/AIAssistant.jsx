@@ -21,7 +21,7 @@ export default function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am Attendly AI. Try asking me to "Send a bulk notice" or "Email [Student Name]".' }
+    { role: 'assistant', content: 'Hello! I am CNHHS AI. Try asking me to "Send a bulk notice" or "Email [Student Name]".' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -177,7 +177,7 @@ export default function AIAssistant() {
                 <Bot size={18} />
               </div>
               <div>
-                <h3 className="font-bold text-sm leading-none">Attendly AI</h3>
+                <h3 className="font-bold text-sm leading-none">CNHHS AI</h3>
                 <span className="text-[10px] opacity-80">Online & Listening</span>
               </div>
             </div>
@@ -300,7 +300,7 @@ export default function AIAssistant() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Ask Attendly AI..."
+                  placeholder="Ask CNHHS AI..."
                   className="w-full bg-[var(--attendly-bg-elevated)] border border-[var(--attendly-border)] rounded-xl pl-4 pr-10 py-2.5 text-sm"
                 />
                 <button 

@@ -37,11 +37,18 @@ exports.publishExamResults = async (req, res) => {
         uid: entry.uid,
         subjects: entry.subjects
           .filter((subject) => subject?.subject && Number.isFinite(Number(subject.marks)))
-          .map((subject) => ({
-            subject: String(subject.subject).trim(),
-            marks: Number(subject.marks),
-            total_marks: Number(subject.total_marks) || 100
-          }))
+          .map((subject) => {
+            const marks = Number(subject.marks);
+            const total_marks = Number(subject.total_marks) || 100;
+            if (marks > total_marks) {
+              throw new Error(`Marks (${marks}) for subject "${subject.subject}" cannot exceed total marks (${total_marks}).`);
+            }
+            return {
+              subject: String(subject.subject).trim(),
+              marks,
+              total_marks
+            };
+          })
       }))
       .filter((entry) => entry.subjects.length > 0);
 
@@ -109,11 +116,18 @@ exports.sendExamResults = async (req, res) => {
         uid: entry.uid,
         subjects: entry.subjects
           .filter((subject) => subject?.subject && Number.isFinite(Number(subject.marks)))
-          .map((subject) => ({
-            subject: String(subject.subject).trim(),
-            marks: Number(subject.marks),
-            total_marks: Number(subject.total_marks) || 100
-          }))
+          .map((subject) => {
+            const marks = Number(subject.marks);
+            const total_marks = Number(subject.total_marks) || 100;
+            if (marks > total_marks) {
+              throw new Error(`Marks (${marks}) for subject "${subject.subject}" cannot exceed total marks (${total_marks}).`);
+            }
+            return {
+              subject: String(subject.subject).trim(),
+              marks,
+              total_marks
+            };
+          })
       }))
       .filter((entry) => entry.subjects.length > 0);
 

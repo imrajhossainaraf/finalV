@@ -42,7 +42,7 @@ export default function Sidebar() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          Attendly
+          CNHHS
         </h1>
       </div>
 

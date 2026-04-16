@@ -12,11 +12,15 @@ import {
   BarChart3, 
   ChevronRight,
   Search,
-  School
+  School,
+  Mail,
+  BookOpen,
+  Bell,
+  Check
 } from 'lucide-react';
 
 export default function Summary() {
-  const { students, attendanceLogs, todayAttendanceMap } = useData();
+  const { students, attendance, todayAttendanceMap } = useData();
   const [searchTerm, setSearchTerm] = useState('');
 
   // Calculate Metrics
@@ -25,15 +29,74 @@ export default function Summary() {
   const absentCount = activeStudents.length - presentCount;
   const attendanceRate = activeStudents.length > 0 ? ((presentCount / activeStudents.length) * 100).toFixed(1) : 0;
 
-  // Today's Logs (filtered for "today" in the context of the app's current date)
-  // Note: DataContext usually filters logs, but let's ensure we show meaningful data.
-  const todayLogs = useMemo(() => {
-    // In a real scenario, we'd filter by date. 
-    // For this UI demo, we use the logs provided by context which are already relevant.
-    return (attendanceLogs || [])
-      .filter(log => !searchTerm || log.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Unified Activities Feed
+  const allActivities = useMemo(() => {
+    const list = [];
+
+    // 1. Attendance Scans
+    (attendance || []).forEach(scan => {
+      // Avoid duplicate logic if attendance already only contains today's scans vs all-time
+      // For the summary page, we usually show recent/today's activity
+      list.push({
+        id: scan._id || scan.id || Math.random(),
+        type: 'scan',
+        name: scan.name || scan.student_id?.name || 'Unknown Student',
+        timestamp: scan.timestamp,
+        class: scan.class || scan.student_id?.class || 'N/A',
+        message: 'Attendance RFID Scan',
+        emailStatus: scan.email_sent ? 'Email Sent' : 'Success',
+        icon: <Clock size={14} />,
+        color: 'cyan'
+      });
+    });
+
+    // 2. Exam Records
+    (students || []).forEach(student => {
+      (student.exam_records || []).forEach(record => {
+        // Publication event
+        list.push({
+          id: `pub-${record._id || record.published_at}-${student.uid}`,
+          type: 'exam',
+          name: student.name,
+          timestamp: record.published_at,
+          class: student.class || 'N/A',
+          message: record.week_label ? `${record.exam_name} (${record.week_label})` : record.exam_name,
+          subMessage: 'Exam Published',
+          emailStatus: record.sent_at ? 'Published & Sent' : 'Published',
+          icon: <BookOpen size={14} />,
+          color: 'indigo'
+        });
+
+        // Email notice event if sent
+        if (record.sent_at) {
+          list.push({
+            id: `mail-${record._id || record.sent_at}-${student.uid}`,
+            type: 'email',
+            name: student.name,
+            timestamp: record.sent_at,
+            class: student.class || 'N/A',
+            message: `Exam Result Email`,
+            subMessage: record.exam_name,
+            emailStatus: 'Delivered',
+            icon: <Mail size={14} />,
+            color: 'pink'
+          });
+        }
+      });
+    });
+
+    return list
+      .filter(act => {
+        if (!searchTerm) return true;
+        const search = searchTerm.toLowerCase();
+        return (
+          act.name.toLowerCase().includes(search) || 
+          act.message.toLowerCase().includes(search) ||
+          act.class.toLowerCase().includes(search)
+        );
+      })
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [attendanceLogs, searchTerm]);
+  }, [attendance, students, searchTerm]);
 
   const classSummary = useMemo(() => {
     const summary = {};
@@ -149,13 +212,13 @@ export default function Summary() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
               <Clock size={20} className="text-indigo-400" />
-              Scan Activity Log
+              Activity Feed
             </h2>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
               <input 
                 type="text" 
-                placeholder="Search scans..." 
+                placeholder="Search activity..." 
                 className="pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500/50 w-48 transition-all"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -167,43 +230,65 @@ export default function Summary() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/5 border-b border-white/10">
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Student</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Activity / Student</th>
                   <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Time</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Class</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 text-right">Method</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">Details</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-400 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {todayLogs.map((log, i) => (
-                  <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                {allActivities.map((act) => (
+                  <tr key={act.id} className="hover:bg-white/[0.02] transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-[10px] font-bold text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition-transform">
-                          {log.name.charAt(0)}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold border group-hover:scale-110 transition-transform`}
+                          style={{ 
+                            background: `var(--attendly-${act.color}-muted || rgba(99,102,241,0.1))`, 
+                            color: act.color === 'cyan' ? '#22d3ee' : act.color === 'pink' ? '#f472b6' : '#818cf8',
+                            borderColor: 'transparent'
+                          }}
+                        >
+                          {act.icon}
                         </div>
-                        <span className="text-sm font-semibold text-white">{log.name}</span>
+                        <div>
+                          <span className="text-sm font-semibold text-white block">{act.name}</span>
+                          <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Class {act.class}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-xs text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
+                      <p className="text-[9px] text-slate-600 mt-0.5">
+                        {new Date(act.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs text-slate-400">{log.class || 'N/A'}</span>
+                      <span className="text-xs text-white font-medium">{act.message}</span>
+                      {act.subMessage && (
+                        <p className="text-[10px] text-slate-500">{act.subMessage}</p>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <span className="px-2 py-1 rounded-md bg-cyan-500/10 text-cyan-400 text-[10px] font-bold uppercase tracking-tighter border border-cyan-500/20">
-                        RFID Scan
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-tighter border flex items-center gap-1.5 ml-auto w-fit`}
+                        style={{ 
+                          background: act.emailStatus.includes('Sent') || act.emailStatus.includes('Delivered') ? 'rgba(52, 211, 153, 0.1)' : 'rgba(255,255,255,0.05)',
+                          color: act.emailStatus.includes('Sent') || act.emailStatus.includes('Delivered') ? '#34d399' : '#94a3b8',
+                          borderColor: act.emailStatus.includes('Sent') || act.emailStatus.includes('Delivered') ? 'rgba(52, 211, 153, 0.2)' : 'rgba(255,255,255,0.1)'
+                        }}
+                      >
+                        {(act.emailStatus.includes('Sent') || act.emailStatus.includes('Delivered')) && <Check size={10} />}
+                        {act.emailStatus}
                       </span>
                     </td>
                   </tr>
                 ))}
-                {todayLogs.length === 0 && (
+                {allActivities.length === 0 && (
                   <tr>
                     <td colSpan="4" className="px-6 py-20 text-center">
                       <FileText size={48} className="mx-auto mb-4 opacity-10" />
-                      <p className="text-slate-500 text-sm">No scans recorded for the selected criteria.</p>
+                      <p className="text-slate-500 text-sm">No activity recorded for the current criteria.</p>
                     </td>
                   </tr>
                 )}

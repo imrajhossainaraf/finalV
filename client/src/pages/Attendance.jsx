@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../context/DataContext';
-import { Search, Download, Filter, CalendarCheck, Mail, X, Edit3 } from 'lucide-react';
+import { Search, Download, Filter, Mail, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function Attendance() {
@@ -333,7 +333,7 @@ export default function Attendance() {
                     {selectedStudent.uid.slice(-2)}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">Attendly Verified</p>
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">CNHHS Verified</p>
               </div>
             </div>
           </div>

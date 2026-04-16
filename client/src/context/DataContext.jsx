@@ -208,7 +208,7 @@ export function DataProvider({ children }) {
       } catch (err) {
         console.error("Error fetching data:", err);
         if (!silent) {
-          toast.error("Failed to connect to Attendly server.");
+          toast.error("Failed to connect to CNHHS server.");
         }
       } finally {
         if (!silent) setLoading(false);

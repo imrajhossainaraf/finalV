@@ -381,7 +381,7 @@ export default function Students() {
                         {!isUnknown && (
                           <>
                             <button
-                              onClick={() => sendManualNotice(student, "This is a manual check-in from Attendly Management.")}
+                              onClick={() => sendManualNotice(student, "This is a manual check-in from CNHHS Management.")}
                               className="p-1.5 rounded-lg transition-all duration-200 hover:scale-110"
                               title="Send Manual Email"
                               style={{
@@ -725,7 +725,7 @@ export default function Students() {
                     {selectedStudent.uid.slice(-2)}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">Attendly Verified</p>
+                <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">CNHHS Verified</p>
               </div>
 
               {/* Quick Edit Action */}
